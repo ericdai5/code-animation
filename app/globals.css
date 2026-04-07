@@ -23,7 +23,7 @@ html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -58,7 +58,7 @@ body {
 }
 
 .header h1 {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--font-instrument), serif;
   font-size: 52px;
   font-weight: 400;
   letter-spacing: -1px;
@@ -109,9 +109,7 @@ body {
   white-space: nowrap;
 }
 
-.step-tab:hover {
-  background: var(--surface);
-}
+.step-tab:hover { background: var(--surface); }
 
 .step-tab.active {
   background: var(--surface);
@@ -121,7 +119,7 @@ body {
   z-index: 1;
 }
 
-.step-tab .step-num {
+.step-num {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,7 +137,7 @@ body {
   color: white;
 }
 
-.step-tab .step-label {
+.step-label {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -147,7 +145,7 @@ body {
   color: var(--text-dim);
 }
 
-.step-tab .step-remove {
+.step-remove {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -164,19 +162,14 @@ body {
   margin-left: 2px;
 }
 
-.step-tab:hover .step-remove {
-  opacity: 0.6;
-}
-
-.step-tab .step-remove:hover {
-  opacity: 1;
+.step-tab:hover .step-remove { opacity: 0.6; }
+.step-remove:hover {
+  opacity: 1 !important;
   background: var(--red-bg);
   color: var(--red);
 }
 
-.steps-panels {
-  position: relative;
-}
+.steps-panels { position: relative; }
 
 .step-panel {
   display: none;
@@ -186,13 +179,7 @@ body {
   overflow: hidden;
 }
 
-.step-panel.active {
-  display: block;
-}
-
-.step-panel.active-first {
-  border-radius: 0 var(--radius) var(--radius) var(--radius);
-}
+.step-panel.active { display: block; }
 
 .step-panel textarea {
   width: 100%;
@@ -202,7 +189,7 @@ body {
   border: none;
   outline: none;
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 13px;
   line-height: 1.75;
   resize: vertical;
@@ -211,7 +198,6 @@ body {
 }
 
 .step-panel textarea::placeholder { color: var(--text-dim); opacity: 0.4; }
-
 .step-panel:focus-within {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 4px var(--accent-soft);
@@ -224,7 +210,7 @@ body {
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-dim);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-dm-sans), sans-serif;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -254,7 +240,7 @@ body {
   padding: 12px 26px;
   border: none;
   border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-dm-sans), sans-serif;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -288,6 +274,32 @@ body {
 }
 
 .btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+
+.btn-export {
+  background: transparent;
+  color: var(--green);
+  border: 1px solid color-mix(in srgb, var(--green) 40%, transparent);
+}
+
+.btn-export:hover {
+  background: var(--green-bg);
+  border-color: var(--green);
+}
+
+.btn-export:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rec-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: pulse 1s ease-in-out infinite;
+}
 
 .speed-w {
   display: flex;
@@ -328,7 +340,7 @@ body {
 }
 
 .speed-v {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono), monospace;
   font-size: 12px;
   color: var(--accent);
   min-width: 32px;
@@ -371,7 +383,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--accent);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono), monospace;
   white-space: nowrap;
 }
 
@@ -416,7 +428,7 @@ body {
   min-height: 240px;
 }
 
-#codeCanvas {
+.canvas-container canvas {
   display: block;
   width: 100%;
 }
