@@ -236,7 +236,7 @@ export function PreviewPanel({
               {exporting ? (
                 <>
                   <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-red-600 animate-pulse" />
-                  Recording...
+                  Exporting...
                 </>
               ) : (
                 <>

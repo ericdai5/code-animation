@@ -50,9 +50,16 @@ import {
   type StepItem,
 } from "@/lib/storyboard-editor";
 import { parseStoryboardText } from "@/lib/storyboard-text";
+import {
+  downloadBlobAsFile,
+  ensureMp4ExportBlob,
+  getPreferredVideoRecordingMimeType,
+} from "@/lib/video-export";
 
 const NOISE_BACKGROUND =
   "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E\")";
+const EXPORT_CAPTURE_PROGRESS_WEIGHT = 0.85;
+const EXPORT_FINALIZE_PROGRESS_WEIGHT = 1 - EXPORT_CAPTURE_PROGRESS_WEIGHT;
 
 export default function Home() {
   const [steps, setSteps] = useState<StepItem[]>(INITIAL_STORYBOARD.steps);
@@ -447,146 +454,168 @@ export default function Home() {
 
   const exportVideo = useCallback(
     async (presetId?: ExportPresetId) => {
-    const effectivePresetId = presetId ?? exportPresetId;
-    const preset = getExportPreset(effectivePresetId);
-    if (presetId !== undefined) {
-      setExportPresetId(presetId);
-    }
-
-    const animator = animatorRef.current;
-    const canvas = canvasRef.current;
-    if (!animator || !canvas) return;
-
-    const currentSequence = buildPlaybackSequence(
-      stepsRef.current,
-      transitionSettingsRef.current,
-      animationRangeRef.current,
-    );
-
-    if (!currentSequence) return;
-    if (animator.running) halt();
-
-    setExporting(true);
-    setProgress(0);
-
-    let exportAnimator: CanvasAnimator | null = null;
-    let cleanupExportCanvas: (() => void) | null = null;
-    let stream: MediaStream | null = null;
-    let recorder: MediaRecorder | null = null;
-    let exportTrack: (MediaStreamTrack & { requestFrame?: () => void }) | null =
-      null;
-
-    try {
-      await document.fonts.ready;
-
-      const logicalWidth = getCanvasLogicalWidth(
-        canvas,
-        preset.targetWidth,
-      );
-      const logicalHeight = Math.max(
-        measureStaticTextHeight(currentSequence.startStep.code, typography),
-        ...currentSequence.transitions.flatMap((item) => [
-          measureStaticTextHeight(item.toStep.code, typography),
-          measureTransitionMaxHeight(
-            item.fromStep.code,
-            item.toStep.code,
-            item.settings,
-            typography,
-          ),
-        ]),
-      );
-      const { canvas: exportCanvas, cleanup } =
-        createHiddenExportCanvas(logicalWidth);
-      cleanupExportCanvas = cleanup;
-
-      exportAnimator = new CanvasAnimator(exportCanvas);
-      exportAnimator.colors = { ...colors };
-      exportAnimator.typography = typography;
-      exportAnimator.updateDpr(
-        Math.max(1, preset.targetWidth / logicalWidth),
-      );
-      exportAnimator.setFixedViewport({
-        width: logicalWidth,
-        height: logicalHeight,
-      });
-
-      const manualStream = exportCanvas.captureStream(0);
-      const manualTrack =
-        (manualStream.getVideoTracks()[0] as MediaStreamTrack & {
-          requestFrame?: () => void;
-        }) ?? null;
-
-      if (typeof manualTrack?.requestFrame === "function") {
-        stream = manualStream;
-        exportTrack = manualTrack;
-        exportAnimator.setDrawListener(() => exportTrack?.requestFrame?.());
-      } else {
-        manualStream.getTracks().forEach((track) => track.stop());
-        stream = exportCanvas.captureStream();
+      const effectivePresetId = presetId ?? exportPresetId;
+      const preset = getExportPreset(effectivePresetId);
+      if (presetId !== undefined) {
+        setExportPresetId(presetId);
       }
 
-      exportAnimator.drawStaticText(currentSequence.startStep.code);
-      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-        ? "video/webm;codecs=vp9"
-        : "video/webm";
-      recorder = new MediaRecorder(stream, {
-        mimeType,
-        videoBitsPerSecond: preset.bitrate,
-      });
-      const activeRecorder = recorder;
-      const chunks: Blob[] = [];
+      const animator = animatorRef.current;
+      const canvas = canvasRef.current;
+      if (!animator || !canvas) return;
 
-      activeRecorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.push(event.data);
-      };
-
-      const done = new Promise<void>((resolve) => {
-        activeRecorder.onstop = () => resolve();
-      });
-
-      activeRecorder.start();
-      exportTrack?.requestFrame?.();
-      await sleep(EXPORT_WARMUP_MS);
-
-      const completed = await playTransitionSequence(
-        exportAnimator,
-        currentSequence,
-        {
-          onProgress: setProgress,
-          onStepLabel: setStepLabel,
-        },
+      const currentSequence = buildPlaybackSequence(
+        stepsRef.current,
+        transitionSettingsRef.current,
+        animationRangeRef.current,
       );
-      if (completed) setProgress(1);
-      exportAnimator.halt();
-      setStepLabel("");
 
-      await sleep(EXPORT_TAIL_MS);
-      activeRecorder.stop();
-      await done;
+      if (!currentSequence) return;
+      if (animator.running) halt();
 
-      const blob = new Blob(chunks, { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download =
-        `code-animation-${preset.id}.` +
-        (mimeType.includes("webm") ? "webm" : "mp4");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    } finally {
-      exportAnimator?.halt();
-      exportAnimator?.setDrawListener(null);
-      exportAnimator?.setFixedViewport(null);
-      if (recorder && recorder.state !== "inactive") recorder.stop();
-      stream?.getTracks().forEach((track) => track.stop());
-      cleanupExportCanvas?.();
-      setRunning(false);
-      setStepLabel("");
-      setExporting(false);
-    }
-  },
+      setExporting(true);
+      setProgress(0);
+
+      let exportAnimator: CanvasAnimator | null = null;
+      let cleanupExportCanvas: (() => void) | null = null;
+      let stream: MediaStream | null = null;
+      let recorder: MediaRecorder | null = null;
+      let exportTrack: (MediaStreamTrack & { requestFrame?: () => void }) | null =
+        null;
+
+      try {
+        await document.fonts.ready;
+
+        const logicalWidth = getCanvasLogicalWidth(
+          canvas,
+          preset.targetWidth,
+        );
+        const logicalHeight = Math.max(
+          measureStaticTextHeight(currentSequence.startStep.code, typography),
+          ...currentSequence.transitions.flatMap((item) => [
+            measureStaticTextHeight(item.toStep.code, typography),
+            measureTransitionMaxHeight(
+              item.fromStep.code,
+              item.toStep.code,
+              item.settings,
+              typography,
+            ),
+          ]),
+        );
+        const { canvas: exportCanvas, cleanup } =
+          createHiddenExportCanvas(logicalWidth);
+        cleanupExportCanvas = cleanup;
+
+        exportAnimator = new CanvasAnimator(exportCanvas);
+        exportAnimator.colors = { ...colors };
+        exportAnimator.typography = typography;
+        exportAnimator.updateDpr(
+          Math.max(1, preset.targetWidth / logicalWidth),
+        );
+        exportAnimator.setFixedViewport({
+          width: logicalWidth,
+          height: logicalHeight,
+        });
+
+        const manualStream = exportCanvas.captureStream(0);
+        const manualTrack =
+          (manualStream.getVideoTracks()[0] as MediaStreamTrack & {
+            requestFrame?: () => void;
+          }) ?? null;
+
+        if (typeof manualTrack?.requestFrame === "function") {
+          stream = manualStream;
+          exportTrack = manualTrack;
+          exportAnimator.setDrawListener(() => exportTrack?.requestFrame?.());
+        } else {
+          manualStream.getTracks().forEach((track) => track.stop());
+          stream = exportCanvas.captureStream();
+        }
+
+        exportAnimator.drawStaticText(currentSequence.startStep.code);
+
+        const preferredMimeType = getPreferredVideoRecordingMimeType();
+        recorder = preferredMimeType
+          ? new MediaRecorder(stream, {
+              mimeType: preferredMimeType,
+              videoBitsPerSecond: preset.bitrate,
+            })
+          : new MediaRecorder(stream, {
+              videoBitsPerSecond: preset.bitrate,
+            });
+
+        const activeRecorder = recorder;
+        const recordingMimeType = activeRecorder.mimeType || preferredMimeType || "";
+        const needsMp4Finalize = !recordingMimeType.includes("mp4");
+        const chunks: Blob[] = [];
+
+        activeRecorder.ondataavailable = (event) => {
+          if (event.data.size) chunks.push(event.data);
+        };
+
+        const done = new Promise<void>((resolve) => {
+          activeRecorder.onstop = () => resolve();
+        });
+
+        activeRecorder.start();
+        exportTrack?.requestFrame?.();
+        await sleep(EXPORT_WARMUP_MS);
+
+        const completed = await playTransitionSequence(
+          exportAnimator,
+          currentSequence,
+          {
+            onProgress: (nextProgress) => {
+              setProgress(
+                needsMp4Finalize
+                  ? nextProgress * EXPORT_CAPTURE_PROGRESS_WEIGHT
+                  : nextProgress,
+              );
+            },
+            onStepLabel: setStepLabel,
+          },
+        );
+
+        if (completed) {
+          setProgress(needsMp4Finalize ? EXPORT_CAPTURE_PROGRESS_WEIGHT : 1);
+        }
+        exportAnimator.halt();
+        setStepLabel("");
+
+        await sleep(EXPORT_TAIL_MS);
+        activeRecorder.stop();
+        await done;
+
+        const capturedMimeType =
+          activeRecorder.mimeType || preferredMimeType || chunks[0]?.type || "video/webm";
+        const capturedBlob = new Blob(chunks, { type: capturedMimeType });
+        const finalBlob = await ensureMp4ExportBlob(capturedBlob, {
+          inputMimeType: capturedMimeType,
+          onProgress: needsMp4Finalize
+            ? (nextProgress) => {
+                setProgress(
+                  EXPORT_CAPTURE_PROGRESS_WEIGHT +
+                    nextProgress * EXPORT_FINALIZE_PROGRESS_WEIGHT,
+                );
+              }
+            : undefined,
+          videoBitsPerSecond: preset.bitrate,
+        });
+
+        setProgress(1);
+        downloadBlobAsFile(finalBlob, `code-animation-${preset.id}.mp4`);
+      } finally {
+        exportAnimator?.halt();
+        exportAnimator?.setDrawListener(null);
+        exportAnimator?.setFixedViewport(null);
+        if (recorder && recorder.state !== "inactive") recorder.stop();
+        stream?.getTracks().forEach((track) => track.stop());
+        cleanupExportCanvas?.();
+        setRunning(false);
+        setStepLabel("");
+        setExporting(false);
+      }
+    },
     [colors, exportPresetId, halt, playTransitionSequence, typography],
   );
 
