@@ -102,58 +102,59 @@ export function StoryboardSidebar({
               onDrop={(event) => onDrop(event, step.id)}
               onDragEnd={onDragEnd}
             >
+              <div
+                className={cn(
+                  "flex cursor-inherit select-none items-center justify-between px-[14px] py-[10px] focus-visible:outline-none",
+                  !transition && "rounded-[20px]",
+                  transition && "rounded-t-[20px]",
+                  isActive && "bg-white/[0.98]",
+                  !(isActive || isTransitionActive) &&
+                    "bg-slate-50/90 group-hover/card:bg-slate-50/50",
+                )}
+                onClick={() => onSelectStep(step.id)}
+                onKeyDown={(event) => onStepCardKey(event, step.id)}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isActive}
+              >
+                <span className="flex items-center gap-1.5 text-[0.92rem] font-semibold">
+                  <SquareCode size={15} /> Code
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2.5 py-1 font-mono text-[0.72rem] font-bold uppercase tracking-[0.08em] text-teal-700">
+                  <Clock size={11} /> {formatDuration(stepHoldMs)}
+                </span>
+              </div>
+
+              {transition && (
                 <div
                   className={cn(
-                    "flex cursor-inherit select-none items-center justify-between px-[14px] py-[10px] focus-visible:outline-none",
-                    !transition && "rounded-[20px]",
-                    transition && "rounded-t-[20px]",
-                    isActive && "bg-white/[0.98]",
-                    !(isActive || isTransitionActive) &&
-                      "bg-slate-50/90 group-hover/card:bg-slate-50/50",
+                    "flex cursor-inherit select-none items-center justify-between rounded-b-[20px] border-t border-t-slate-200/60 px-[14px] py-[9px]",
+                    isTransitionActive && "bg-white/[0.98]",
+                    !isTransitionActive &&
+                      !(isActive || isTransitionActive) &&
+                      "bg-slate-50/60 group-hover/card:bg-slate-50/30",
                   )}
-                  onClick={() => onSelectStep(step.id)}
-                  onKeyDown={(event) => onStepCardKey(event, step.id)}
+                  onClick={() => onSelectTransition(transition.id)}
                   role="button"
                   tabIndex={0}
-                  aria-pressed={isActive}
+                  aria-pressed={isTransitionActive}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectTransition(transition.id);
+                    }
+                  }}
                 >
-                  <span className="flex items-center gap-1.5 text-[0.92rem] font-bold">
-                    <SquareCode size={15} /> Code
+                  <span className="flex items-center gap-1.5 text-[0.92rem] font-semibold text-slate-900">
+                    <Zap size={15} aria-hidden />
+                    Transition
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2.5 py-1 font-mono text-[0.72rem] font-bold uppercase tracking-[0.08em] text-teal-700">
-                    <Clock size={11} /> {formatDuration(stepHoldMs)}
+                    <Clock size={11} />{" "}
+                    {formatDuration(transition.settings.durationMs)}
                   </span>
                 </div>
-
-                {transition && (
-                  <div
-                    className={cn(
-                      "flex cursor-inherit select-none items-center justify-between rounded-b-[20px] border-t border-t-slate-200/60 px-[14px] py-[9px]",
-                      isTransitionActive && "bg-white/[0.98]",
-                      !isTransitionActive &&
-                        !(isActive || isTransitionActive) &&
-                        "bg-slate-50/60 group-hover/card:bg-slate-50/30",
-                    )}
-                    onClick={() => onSelectTransition(transition.id)}
-                    role="button"
-                    tabIndex={0}
-                    aria-pressed={isTransitionActive}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        onSelectTransition(transition.id);
-                      }
-                    }}
-                  >
-                    <span className="flex items-center gap-1.5 text-[0.82rem] font-semibold text-slate-500">
-                      <Zap size={13} /> Transition
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2.5 py-1 font-mono text-[0.72rem] font-bold uppercase tracking-[0.08em] text-teal-700">
-                      <Clock size={11} />{" "}
-                      {formatDuration(transition.settings.durationMs)}
-                    </span>
-                  </div>
-                )}
+              )}
             </div>
           );
         })}
