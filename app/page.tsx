@@ -1,89 +1,145 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { CanvasAnimator } from "@/lib/animator";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
 
-const DEFAULT_STEPS = [
-  'const kineticConfig: Config = {\n  formulas: [\n    id: "kinetic-energy", latex: "K = \\\\frac{1}{2}mv^2",\n  ]\n}',
-  'const kineticConfig: Config = {\n  formulas: [\n    id: "kinetic-energy", latex: "K = \\\\frac{1}{2}mv^2",\n  ],\n  variables: {\n    K: { name: "Kinetic Energy" },\n  },\n}',
-  'const kineticConfig: Config = {\n  formulas: [\n    id: "kinetic-energy", latex: "K = \\\\frac{1}{2}mv^2",\n  ],\n  variables: {\n    K: { name: "Kinetic Energy", unit: "J" },\n    m: { name: "Mass", unit: "kg" },\n    v: { name: "Velocity", unit: "m/s" },\n  },\n}',
-];
+import { CodeEditorPanel } from "@/components/storyboard/code-editor-panel";
+import { ColorPanel } from "@/components/storyboard/color-panel";
+import { PlaybackPanel } from "@/components/storyboard/playback-panel";
+import { PreviewPanel } from "@/components/storyboard/preview-panel";
+import { StoryboardSidebar } from "@/components/storyboard/storyboard-sidebar";
+import {
+  CanvasAnimator,
+  measureStaticTextHeight,
+  measureTransitionMaxHeight,
+  type ColorConfig,
+  type TransitionConfig,
+} from "@/lib/animator";
+import {
+  buildInitialStoryboardState,
+  buildResolvedTransitions,
+  clampStepHoldDuration,
+  createHiddenExportCanvas,
+  DEFAULT_EXPORT_PRESET_ID,
+  DEFAULT_TRANSITION_SETTINGS,
+  EXPORT_TAIL_MS,
+  EXPORT_WARMUP_MS,
+  getCanvasLogicalWidth,
+  getExportPreset,
+  getResolvedStepHoldMs,
+  getTransitionKey,
+  INITIAL_STEPS,
+  INITIAL_STORYBOARD,
+  normalizeTransitionConfig,
+  sleep,
+  TRANSITION_MIN_MS,
+  type ExportPresetId,
+  type StepItem,
+} from "@/lib/storyboard-editor";
+import { parseStoryboardText } from "@/lib/storyboard-text";
 
-function PlayIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="5 3 19 12 5 21 5 3" />
-    </svg>
-  );
-}
-
-function PauseIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-      <rect x="6" y="4" width="4" height="16" rx="1" />
-      <rect x="14" y="4" width="4" height="16" rx="1" />
-    </svg>
-  );
-}
-
-function ResetIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="1 4 1 10 7 10" />
-      <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-    </svg>
-  );
-}
-
-function ExportIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-      <line x1="6" y1="6" x2="18" y2="18" />
-      <line x1="18" y1="6" x2="6" y2="18" />
-    </svg>
-  );
-}
+const NOISE_BACKGROUND =
+  "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E\")";
 
 export default function Home() {
-  const [steps, setSteps] = useState<string[]>(DEFAULT_STEPS);
-  const [activeTab, setActiveTab] = useState(0);
-  const [speed, setSpeed] = useState(5);
+  const [steps, setSteps] = useState<StepItem[]>(INITIAL_STORYBOARD.steps);
+  const [activeStepId, setActiveStepId] = useState(INITIAL_STEPS[0]?.id ?? "");
+  const [draggingStepId, setDraggingStepId] = useState<string | null>(null);
+  const [dragOverStepId, setDragOverStepId] = useState<string | null>(null);
+  const [expandedTransitions, setExpandedTransitions] = useState<
+    Record<string, boolean>
+  >({});
+  const [transitionSettings, setTransitionSettings] = useState<
+    Record<string, TransitionConfig>
+  >(INITIAL_STORYBOARD.transitionSettings);
   const [running, setRunning] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [stepLabel, setStepLabel] = useState("");
+  const [exportPresetId, setExportPresetId] = useState<ExportPresetId>(
+    DEFAULT_EXPORT_PRESET_ID,
+  );
+  const [colors, setColors] = useState<ColorConfig>({
+    bg: "#f8fbfc",
+    text: "#13232b",
+    inserted: "#15803d",
+    deleted: "#dc2626",
+  });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animatorRef = useRef<CanvasAnimator | null>(null);
   const stepsRef = useRef(steps);
-  stepsRef.current = steps;
-  const speedRef = useRef(speed);
-  speedRef.current = speed;
+  const transitionSettingsRef = useRef(transitionSettings);
+  const nextStepIdRef = useRef(INITIAL_STEPS.length + 1);
 
-  // Initialize animator
+  stepsRef.current = steps;
+  transitionSettingsRef.current = transitionSettings;
+
+  const activeStepIndex = steps.findIndex((step) => step.id === activeStepId);
+  const selectedStep = activeStepIndex >= 0 ? steps[activeStepIndex] : steps[0];
+  const resolvedActiveStepId = selectedStep?.id ?? "";
+  const resolvedActiveStepIndex = selectedStep
+    ? steps.findIndex((step) => step.id === selectedStep.id)
+    : 0;
+  const transitions = buildResolvedTransitions(steps, transitionSettings);
+  const selectedStepHoldMs = selectedStep
+    ? getResolvedStepHoldMs(selectedStep, resolvedActiveStepIndex, steps.length)
+    : 0;
+  const exportPreset = getExportPreset(exportPresetId);
+
+  useEffect(() => {
+    if (!steps.some((step) => step.id === activeStepId) && steps[0]) {
+      setActiveStepId(steps[0].id);
+    }
+  }, [activeStepId, steps]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadStoryboard = async () => {
+      try {
+        const response = await fetch("/api/storyboard", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+
+        const text = await response.text();
+        const nextStoryboard = buildInitialStoryboardState(
+          parseStoryboardText(text),
+        );
+
+        if (!nextStoryboard.steps.length || controller.signal.aborted) return;
+
+        setSteps(nextStoryboard.steps);
+        setTransitionSettings(nextStoryboard.transitionSettings);
+        setExpandedTransitions({});
+        setActiveStepId(nextStoryboard.steps[0]?.id ?? "");
+        nextStepIdRef.current = nextStoryboard.steps.length + 1;
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error("Failed to load storyboard text file.", error);
+        }
+      }
+    };
+
+    void loadStoryboard();
+
+    return () => controller.abort();
+  }, []);
+
   useEffect(() => {
     if (!canvasRef.current) return;
+
     const animator = new CanvasAnimator(canvasRef.current);
     animatorRef.current = animator;
+
     document.fonts.ready.then(() => {
       animator.updateDpr();
       animator.drawPlaceholder();
@@ -93,53 +149,190 @@ export default function Home() {
       animator.updateDpr();
       if (!animator.running) animator.drawPlaceholder();
     };
+
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const lineDelay = useCallback(() => 150 / (speedRef.current / 5), []);
+  useEffect(() => {
+    if (!animatorRef.current) return;
+    animatorRef.current.colors = colors;
+    if (!animatorRef.current.running) animatorRef.current.drawPlaceholder();
+  }, [colors]);
+
+  const updateColor = (key: keyof ColorConfig, value: string) => {
+    setColors((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateTransitionSettings = (
+    transitionId: string,
+    patch: Partial<TransitionConfig>,
+  ) => {
+    setTransitionSettings((prev) => {
+      const existing = prev[transitionId] ?? DEFAULT_TRANSITION_SETTINGS;
+      return {
+        ...prev,
+        [transitionId]: normalizeTransitionConfig({
+          ...existing,
+          ...patch,
+        }),
+      };
+    });
+  };
+
+  const updateStepHoldDuration = (stepId: string, durationMs: number) => {
+    setSteps((prev) =>
+      prev.map((step) =>
+        step.id === stepId
+          ? {
+              ...step,
+              holdDurationMs: clampStepHoldDuration(durationMs),
+            }
+          : step,
+      ),
+    );
+  };
+
+  const toggleTransitionExpanded = (transitionId: string) => {
+    setExpandedTransitions((prev) => ({
+      ...prev,
+      [transitionId]: !(prev[transitionId] ?? false),
+    }));
+  };
 
   const halt = useCallback(() => {
-    const a = animatorRef.current;
-    if (!a) return;
-    a.halt();
+    const animator = animatorRef.current;
+    if (!animator) return;
+    animator.halt();
     setRunning(false);
     setStepLabel("");
   }, []);
 
+  const playTransitionSequence = useCallback(
+    async (
+      animator: CanvasAnimator,
+      items: ReturnType<typeof buildResolvedTransitions>,
+      options?: {
+        onProgress?: (value: number) => void;
+        onStepLabel?: (value: string) => void;
+      },
+    ) => {
+      animator.running = true;
+      const finalStep = items[items.length - 1]?.toStep;
+      const finalStepHoldMs = finalStep
+        ? getResolvedStepHoldMs(finalStep, items.length, items.length + 1)
+        : 0;
+      const totalDurationMs =
+        items.reduce(
+          (sum, item) =>
+            sum +
+            item.fromStepHoldMs +
+            Math.max(TRANSITION_MIN_MS, item.settings.durationMs),
+          0,
+        ) + finalStepHoldMs;
+      let elapsedMs = 0;
+
+      for (let index = 0; index < items.length; index++) {
+        if (!animator.running) break;
+
+        const item = items[index];
+
+        if (item.fromStepHoldMs > 0) {
+          options?.onStepLabel?.(`Hold on Step ${index + 1}`);
+
+          await animator.holdFrame(
+            item.fromStep.code,
+            item.fromStepHoldMs,
+            (value) =>
+              options?.onProgress?.(
+                totalDurationMs <= 0
+                  ? 1
+                  : (elapsedMs + value * item.fromStepHoldMs) / totalDurationMs,
+              ),
+          );
+
+          elapsedMs += item.fromStepHoldMs;
+        }
+
+        if (!animator.running) break;
+
+        options?.onStepLabel?.(`Step ${index + 1} to ${index + 2}`);
+
+        await animator.animateTransition(
+          item.fromStep.code,
+          item.toStep.code,
+          item.settings,
+          (value) =>
+            options?.onProgress?.(
+              totalDurationMs <= 0
+                ? 1
+                : (elapsedMs + value * item.settings.durationMs) /
+                    totalDurationMs,
+            ),
+        );
+        elapsedMs += item.settings.durationMs;
+      }
+
+      if (animator.running && finalStep && finalStepHoldMs > 0) {
+        options?.onStepLabel?.(`Hold on Step ${items.length + 1}`);
+
+        await animator.holdFrame(
+          finalStep.code,
+          finalStepHoldMs,
+          (value) =>
+            options?.onProgress?.(
+              totalDurationMs <= 0
+                ? 1
+                : (elapsedMs + value * finalStepHoldMs) / totalDurationMs,
+            ),
+        );
+
+        elapsedMs += finalStepHoldMs;
+      }
+
+      return animator.running;
+    },
+    [],
+  );
+
+  const playTransitions = useCallback(
+    async (items: ReturnType<typeof buildResolvedTransitions>) => {
+      const animator = animatorRef.current;
+      if (!animator) return false;
+
+      setRunning(true);
+      setProgress(0);
+
+      return playTransitionSequence(animator, items, {
+        onProgress: setProgress,
+        onStepLabel: setStepLabel,
+      });
+    },
+    [playTransitionSequence],
+  );
+
   const animateAll = useCallback(async () => {
-    const a = animatorRef.current;
-    if (!a) return;
-    if (a.running) {
+    const animator = animatorRef.current;
+    if (!animator) return;
+
+    if (animator.running) {
       halt();
       return;
     }
-    const currentSteps = stepsRef.current;
-    if (currentSteps.length < 2) return;
 
-    a.running = true;
-    setRunning(true);
-    const total = currentSteps.length - 1;
+    const currentTransitions = buildResolvedTransitions(
+      stepsRef.current,
+      transitionSettingsRef.current,
+    );
 
-    for (let i = 0; i < total; i++) {
-      if (!a.running) break;
-      setStepLabel(`Step ${i + 1} \u2192 ${i + 2}`);
-      await a.animateTransition(
-        currentSteps[i],
-        currentSteps[i + 1],
-        lineDelay(),
-        (p) => setProgress((i + p) / total)
-      );
-      if (a.running && i < total - 1) {
-        await new Promise<void>((r) => setTimeout(r, 500));
-      }
-    }
+    if (currentTransitions.length === 0) return;
 
-    if (a.running) {
+    const completed = await playTransitions(currentTransitions);
+    if (completed) {
       setProgress(1);
       halt();
     }
-  }, [halt, lineDelay]);
+  }, [halt, playTransitions]);
 
   const reset = useCallback(() => {
     halt();
@@ -148,222 +341,321 @@ export default function Home() {
   }, [halt]);
 
   const exportVideo = useCallback(async () => {
-    const a = animatorRef.current;
+    const animator = animatorRef.current;
     const canvas = canvasRef.current;
-    if (!a || !canvas) return;
-    const currentSteps = stepsRef.current;
-    if (currentSteps.length < 2) return;
-    if (a.running) halt();
+    if (!animator || !canvas) return;
+
+    const currentTransitions = buildResolvedTransitions(
+      stepsRef.current,
+      transitionSettingsRef.current,
+    );
+
+    if (currentTransitions.length === 0) return;
+    if (animator.running) halt();
 
     setExporting(true);
+    setProgress(0);
 
-    a.drawStaticText(currentSteps[0]);
-    await new Promise<void>((r) => setTimeout(r, 100));
+    let exportAnimator: CanvasAnimator | null = null;
+    let cleanupExportCanvas: (() => void) | null = null;
+    let stream: MediaStream | null = null;
+    let recorder: MediaRecorder | null = null;
+    let exportTrack: (MediaStreamTrack & { requestFrame?: () => void }) | null =
+      null;
 
-    const stream = canvas.captureStream(60);
-    const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : "video/webm";
-    const recorder = new MediaRecorder(stream, {
-      mimeType,
-      videoBitsPerSecond: 8_000_000,
-    });
-    const chunks: Blob[] = [];
-    recorder.ondataavailable = (e) => {
-      if (e.data.size) chunks.push(e.data);
-    };
-    const done = new Promise<void>((resolve) => {
-      recorder.onstop = () => resolve();
-    });
+    try {
+      await document.fonts.ready;
 
-    recorder.start();
-    a.running = true;
-    setRunning(true);
-    const total = currentSteps.length - 1;
-
-    for (let i = 0; i < total; i++) {
-      if (!a.running) break;
-      setStepLabel(`Step ${i + 1} \u2192 ${i + 2}`);
-      await a.animateTransition(
-        currentSteps[i],
-        currentSteps[i + 1],
-        lineDelay(),
-        (p) => setProgress((i + p) / total)
+      const logicalWidth = getCanvasLogicalWidth(
+        canvas,
+        exportPreset.targetWidth,
       );
-      if (a.running && i < total - 1) {
-        await new Promise<void>((r) => setTimeout(r, 500));
+      const logicalHeight = Math.max(
+        measureStaticTextHeight(currentTransitions[0].fromStep.code),
+        ...currentTransitions.flatMap((item) => [
+          measureStaticTextHeight(item.toStep.code),
+          measureTransitionMaxHeight(
+            item.fromStep.code,
+            item.toStep.code,
+            item.settings,
+          ),
+        ]),
+      );
+      const { canvas: exportCanvas, cleanup } =
+        createHiddenExportCanvas(logicalWidth);
+      cleanupExportCanvas = cleanup;
+
+      exportAnimator = new CanvasAnimator(exportCanvas);
+      exportAnimator.colors = { ...colors };
+      exportAnimator.updateDpr(
+        Math.max(1, exportPreset.targetWidth / logicalWidth),
+      );
+      exportAnimator.setFixedViewport({
+        width: logicalWidth,
+        height: logicalHeight,
+      });
+
+      const manualStream = exportCanvas.captureStream(0);
+      const manualTrack =
+        (manualStream.getVideoTracks()[0] as MediaStreamTrack & {
+          requestFrame?: () => void;
+        }) ?? null;
+
+      if (typeof manualTrack?.requestFrame === "function") {
+        stream = manualStream;
+        exportTrack = manualTrack;
+        exportAnimator.setDrawListener(() => exportTrack?.requestFrame?.());
+      } else {
+        manualStream.getTracks().forEach((track) => track.stop());
+        stream = exportCanvas.captureStream();
       }
+
+      exportAnimator.drawStaticText(currentTransitions[0].fromStep.code);
+      const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+        ? "video/webm;codecs=vp9"
+        : "video/webm";
+      recorder = new MediaRecorder(stream, {
+        mimeType,
+        videoBitsPerSecond: exportPreset.bitrate,
+      });
+      const activeRecorder = recorder;
+      const chunks: Blob[] = [];
+
+      activeRecorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.push(event.data);
+      };
+
+      const done = new Promise<void>((resolve) => {
+        activeRecorder.onstop = () => resolve();
+      });
+
+      activeRecorder.start();
+      exportTrack?.requestFrame?.();
+      await sleep(EXPORT_WARMUP_MS);
+
+      const completed = await playTransitionSequence(
+        exportAnimator,
+        currentTransitions,
+        {
+          onProgress: setProgress,
+          onStepLabel: setStepLabel,
+        },
+      );
+      if (completed) setProgress(1);
+      exportAnimator.halt();
+      setStepLabel("");
+
+      await sleep(EXPORT_TAIL_MS);
+      activeRecorder.stop();
+      await done;
+
+      const blob = new Blob(chunks, { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download =
+        `code-animation-${exportPreset.id}.` +
+        (mimeType.includes("webm") ? "webm" : "mp4");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      exportAnimator?.halt();
+      exportAnimator?.setDrawListener(null);
+      exportAnimator?.setFixedViewport(null);
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      stream?.getTracks().forEach((track) => track.stop());
+      cleanupExportCanvas?.();
+      setRunning(false);
+      setStepLabel("");
+      setExporting(false);
     }
+  }, [colors, exportPreset, halt, playTransitionSequence]);
 
-    if (a.running) setProgress(1);
-    halt();
-
-    await new Promise<void>((r) => setTimeout(r, 500));
-    recorder.stop();
-    await done;
-
-    const blob = new Blob(chunks, { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download =
-      "code-animation." + (mimeType.includes("webm") ? "webm" : "mp4");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    setExporting(false);
-  }, [halt, lineDelay]);
-
-  const updateStep = (idx: number, value: string) => {
-    setSteps((prev) => prev.map((s, i) => (i === idx ? value : s)));
+  const updateStep = (stepId: string, value: string) => {
+    setSteps((prev) =>
+      prev.map((step) =>
+        step.id === stepId ? { ...step, code: value } : step,
+      ),
+    );
   };
 
   const addStep = () => {
-    setSteps((prev) => [...prev, ""]);
-    setActiveTab(steps.length);
-  };
+    const newStep: StepItem = {
+      id: `step-${nextStepIdRef.current}`,
+      code: "",
+    };
 
-  const removeStep = (idx: number) => {
-    if (steps.length <= 2) return;
-    setSteps((prev) => prev.filter((_, i) => i !== idx));
-    setActiveTab((prev) => Math.min(prev, steps.length - 2));
-  };
-
-  const handleTabKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const ta = e.currentTarget;
-      const s = ta.selectionStart;
-      const end = ta.selectionEnd;
-      const val = ta.value;
-      const newVal = val.substring(0, s) + "  " + val.substring(end);
-      ta.value = newVal;
-      ta.selectionStart = ta.selectionEnd = s + 2;
-      updateStep(activeTab, newVal);
+    const previousStep = steps[steps.length - 1];
+    nextStepIdRef.current += 1;
+    setSteps((prev) => [...prev, newStep]);
+    if (previousStep) {
+      const transitionId = getTransitionKey(previousStep.id, newStep.id);
+      setTransitionSettings((prev) => ({
+        ...prev,
+        [transitionId]: prev[transitionId] ?? {
+          ...DEFAULT_TRANSITION_SETTINGS,
+        },
+      }));
     }
+    setActiveStepId(newStep.id);
+  };
+
+  const removeStep = (stepId: string) => {
+    if (steps.length <= 2) return;
+
+    const index = steps.findIndex((step) => step.id === stepId);
+    if (index < 0) return;
+
+    const nextSteps = steps.filter((step) => step.id !== stepId);
+    setSteps(nextSteps);
+
+    if (resolvedActiveStepId === stepId) {
+      const fallback = nextSteps[Math.min(index, nextSteps.length - 1)];
+      if (fallback) setActiveStepId(fallback.id);
+    }
+  };
+
+  const moveStep = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+
+    setSteps((prev) => {
+      const fromIndex = prev.findIndex((step) => step.id === fromId);
+      const toIndex = prev.findIndex((step) => step.id === toId);
+      if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return prev;
+
+      const next = [...prev];
+      const [movedStep] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, movedStep);
+      return next;
+    });
+  }, []);
+
+  const clearDragState = () => {
+    setDraggingStepId(null);
+    setDragOverStepId(null);
+  };
+
+  const handleDragStart = (
+    event: DragEvent<HTMLDivElement>,
+    stepId: string,
+  ) => {
+    setDraggingStepId(stepId);
+    setDragOverStepId(stepId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", stepId);
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>, stepId: string) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    if (draggingStepId && draggingStepId !== stepId) {
+      setDragOverStepId(stepId);
+    }
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>, stepId: string) => {
+    event.preventDefault();
+    const sourceId = draggingStepId || event.dataTransfer.getData("text/plain");
+
+    if (sourceId && sourceId !== stepId) {
+      moveStep(sourceId, stepId);
+    }
+
+    clearDragState();
+  };
+
+  const handleStepCardKey = (
+    event: KeyboardEvent<HTMLDivElement>,
+    stepId: string,
+  ) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setActiveStepId(stepId);
+    }
+  };
+
+  const handleCodeTabKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Tab" || !resolvedActiveStepId) return;
+
+    event.preventDefault();
+    const textarea = event.currentTarget;
+    const selectionStart = textarea.selectionStart;
+    const selectionEnd = textarea.selectionEnd;
+    const currentValue = textarea.value;
+    const nextValue =
+      currentValue.substring(0, selectionStart) +
+      "  " +
+      currentValue.substring(selectionEnd);
+
+    textarea.value = nextValue;
+    textarea.selectionStart = textarea.selectionEnd = selectionStart + 2;
+    updateStep(resolvedActiveStepId, nextValue);
   };
 
   return (
     <>
-      <div className="noise" />
-      <div className="app">
-        <div className="header">
-          <h1>
-            Code <em>Transition</em> Animator
-          </h1>
-          <p>
-            Add a series of code snapshots and watch each transition animate in
-            sequence.
-          </p>
-        </div>
+      <div
+        className="pointer-events-none fixed inset-0 z-[9999]"
+        style={{ backgroundImage: NOISE_BACKGROUND }}
+      />
+      <div className="mx-auto max-w-[1680px]">
+        <div className="grid items-start gap-0 min-[821px]:grid-cols-2 min-[1081px]:grid-cols-[minmax(270px,320px)_minmax(360px,1fr)_minmax(320px,0.88fr)] min-[1321px]:grid-cols-[minmax(290px,340px)_minmax(420px,1.05fr)_minmax(360px,0.92fr)]">
+          <StoryboardSidebar
+            activeStepId={resolvedActiveStepId}
+            draggingStepId={draggingStepId}
+            dragOverStepId={dragOverStepId}
+            expandedTransitions={expandedTransitions}
+            steps={steps}
+            transitions={transitions}
+            onAddStep={addStep}
+            onDragEnd={clearDragState}
+            onDragOver={handleDragOver}
+            onDragStart={handleDragStart}
+            onDrop={handleDrop}
+            onRemoveStep={removeStep}
+            onSelectStep={setActiveStepId}
+            onStepCardKey={handleStepCardKey}
+            onToggleTransitionExpanded={toggleTransitionExpanded}
+            onUpdateTransitionSettings={updateTransitionSettings}
+          />
 
-        {/* Steps */}
-        <div className="steps-container">
-          <div className="steps-tabs">
-            {steps.map((_, i) => (
-              <div
-                key={i}
-                className={`step-tab${i === activeTab ? " active" : ""}`}
-                onClick={() => setActiveTab(i)}
-              >
-                <span className="step-num">{i + 1}</span>
-                <span className="step-label">Step {i + 1}</span>
-                {steps.length > 2 && (
-                  <button
-                    className="step-remove"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeStep(i);
-                    }}
-                  >
-                    <XIcon />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <div className="steps-panels">
-            {steps.map((code, i) => (
-              <div
-                key={i}
-                className={`step-panel${i === activeTab ? " active" : ""}`}
-              >
-                <textarea
-                  spellCheck={false}
-                  placeholder={`Paste code for step ${i + 1}...`}
-                  value={code}
-                  onChange={(e) => updateStep(i, e.target.value)}
-                  onKeyDown={handleTabKey}
-                />
-              </div>
-            ))}
-          </div>
-          <button className="btn btn-add" onClick={addStep}>
-            <PlusIcon />
-            Add Step
-          </button>
-        </div>
+          <CodeEditorPanel
+            activeStepIndex={resolvedActiveStepIndex}
+            selectedStep={selectedStep}
+            selectedStepHoldMs={selectedStepHoldMs}
+            stepCount={steps.length}
+            onCodeKeyDown={handleCodeTabKey}
+            onUpdateCode={(value) => {
+              if (selectedStep) updateStep(selectedStep.id, value);
+            }}
+            onUpdateHoldDuration={(durationMs) => {
+              if (selectedStep) {
+                updateStepHoldDuration(selectedStep.id, durationMs);
+              }
+            }}
+          />
 
-        {/* Controls */}
-        <div className="controls">
-          <button className="btn btn-primary" onClick={animateAll}>
-            {running ? <PauseIcon /> : <PlayIcon />}
-            {running ? "Pause" : "Animate All"}
-          </button>
-          <button className="btn btn-ghost" onClick={reset}>
-            <ResetIcon />
-            Reset
-          </button>
-          <button
-            className="btn btn-export"
-            onClick={exportVideo}
-            disabled={exporting}
-          >
-            {exporting ? (
-              <>
-                <span className="rec-dot" />
-                Recording&hellip;
-              </>
-            ) : (
-              <>
-                <ExportIcon />
-                Export Video
-              </>
-            )}
-          </button>
-          <div className="speed-w">
-            <label>Speed</label>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              value={speed}
-              step={1}
-              onChange={(e) => setSpeed(Number(e.target.value))}
+          <section className="flex min-w-0 flex-col gap-4">
+            <PreviewPanel
+              canvasRef={canvasRef}
+              progress={progress}
+              running={running}
+              stepLabel={stepLabel}
             />
-            <span className="speed-v">{(speed / 5).toFixed(1)}x</span>
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="preview-wrap">
-          <div className="preview-bar">
-            <span className="ttl">
-              <span className={`live-dot${running ? " on" : ""}`} />
-              Preview
-            </span>
-            <span className="step-indicator">{stepLabel}</span>
-            <div className="prog-track">
-              <div
-                className="prog-fill"
-                style={{ width: `${progress * 100}%` }}
-              />
-            </div>
-          </div>
-          <div className="canvas-container">
-            <canvas ref={canvasRef} />
-          </div>
+            <PlaybackPanel
+              exportPreset={exportPreset}
+              exportPresetId={exportPresetId}
+              exporting={exporting}
+              running={running}
+              onAnimateAll={animateAll}
+              onExportVideo={exportVideo}
+              onPresetChange={setExportPresetId}
+              onReset={reset}
+            />
+            <ColorPanel colors={colors} onUpdateColor={updateColor} />
+          </section>
         </div>
       </div>
     </>

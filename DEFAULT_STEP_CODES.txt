@@ -1,0 +1,98 @@
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 700
+
+const kineticConfig: Config = {
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1200
+insertOnly: true
+fuzzyDiff: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 700
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ]
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1200
+insertOnly: true
+fuzzyDiff: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 900
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+  },
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1200
+insertOnly: true
+fuzzyDiff: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+  },
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1200
+insertOnly: true
+fuzzyDiff: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: { name: "Mass" },
+  },
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1200
+insertOnly: true
+fuzzyDiff: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: { name: "Mass" },
+    v: { name: "Velocity" },
+  },
+}
