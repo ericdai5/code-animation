@@ -707,7 +707,7 @@ export default function Home() {
             <div
               className={
                 stylesPanelExpanded
-                  ? "min-h-0 flex-[1.25] overflow-y-auto"
+                  ? "h-1/2 min-h-0 shrink-0 overflow-y-auto"
                   : "flex min-h-0 flex-1 flex-col overflow-hidden"
               }
             >
@@ -715,7 +715,7 @@ export default function Home() {
                 canvasRef={canvasRef}
                 exportPresetId={exportPresetId}
                 exporting={exporting}
-                fillAvailableHeight={!stylesPanelExpanded}
+                fillAvailableHeight
                 onAnimateAll={animateAll}
                 onExportVideo={(presetId) => void exportVideo(presetId)}
                 onReset={reset}
@@ -727,7 +727,7 @@ export default function Home() {
             <div
               className={
                 stylesPanelExpanded
-                  ? "flex min-h-0 flex-1 flex-col justify-end overflow-hidden"
+                  ? "flex h-1/2 min-h-0 shrink-0 flex-col overflow-hidden"
                   : "shrink-0"
               }
             >

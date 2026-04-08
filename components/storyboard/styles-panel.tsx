@@ -87,7 +87,7 @@ export function StylesPanel({
   return (
     <Panel
       className={cn(
-        "flex flex-col overflow-hidden border-t-0",
+        "flex flex-col overflow-hidden",
         expanded
           ? "h-full min-h-0 flex-1"
           : "shrink-0",
@@ -180,63 +180,64 @@ export function StylesPanel({
               </div>
             </FieldCard>
 
-            <FieldCard compact>
-              <FieldRow>
-                <FieldCopy>
-                  <FieldHeading>
-                    <FieldTitle>Line spacing</FieldTitle>
-                    <InfoHint text="Control the vertical space between code lines in the editor, preview, and export." />
-                  </FieldHeading>
-                  <FieldDescription>
-                    Higher values create more breathing room between lines.
-                  </FieldDescription>
-                </FieldCopy>
-                <SliderValuePill>
-                  {formatStyleValue(typography.codeLineSpacing)}x
-                </SliderValuePill>
-              </FieldRow>
-
-              <RangeInput
-                min={CODE_LINE_SPACING_MIN}
-                max={CODE_LINE_SPACING_MAX}
-                step={CODE_LINE_SPACING_STEP}
-                value={typography.codeLineSpacing}
-                onChange={(event) =>
-                  onUpdateTypography({
-                    codeLineSpacing: Number(event.target.value),
-                  })
-                }
-              />
-            </FieldCard>
-
-            <FieldCard compact>
-              <FieldRow>
-                <FieldCopy>
-                  <FieldHeading>
-                    <FieldTitle>Letter spacing</FieldTitle>
-                    <InfoHint text="Fine-tune the spacing between characters for the code font across preview, export, and editing." />
-                  </FieldHeading>
-                  <FieldDescription>
-                    Negative values tighten the text; positive values spread it
-                    out.
-                  </FieldDescription>
-                </FieldCopy>
-                <SliderValuePill>
-                  {formatStyleValue(typography.codeLetterSpacing)}px
-                </SliderValuePill>
-              </FieldRow>
-
-              <RangeInput
-                min={CODE_LETTER_SPACING_MIN}
-                max={CODE_LETTER_SPACING_MAX}
-                step={CODE_LETTER_SPACING_STEP}
-                value={typography.codeLetterSpacing}
-                onChange={(event) =>
-                  onUpdateTypography({
-                    codeLetterSpacing: Number(event.target.value),
-                  })
-                }
-              />
+            <FieldCard compact className="gap-4">
+              <div className="grid grid-cols-1 gap-4 min-[700px]:grid-cols-2 min-[700px]:gap-5">
+                <div className="flex min-w-0 flex-col gap-3">
+                  <FieldRow>
+                    <FieldCopy>
+                      <FieldHeading>
+                        <FieldTitle>Line spacing</FieldTitle>
+                        <InfoHint text="Control the vertical space between code lines in the editor, preview, and export." />
+                      </FieldHeading>
+                      <FieldDescription>
+                        Higher values create more breathing room between lines.
+                      </FieldDescription>
+                    </FieldCopy>
+                    <SliderValuePill>
+                      {formatStyleValue(typography.codeLineSpacing)}x
+                    </SliderValuePill>
+                  </FieldRow>
+                  <RangeInput
+                    min={CODE_LINE_SPACING_MIN}
+                    max={CODE_LINE_SPACING_MAX}
+                    step={CODE_LINE_SPACING_STEP}
+                    value={typography.codeLineSpacing}
+                    onChange={(event) =>
+                      onUpdateTypography({
+                        codeLineSpacing: Number(event.target.value),
+                      })
+                    }
+                  />
+                </div>
+                <div className="flex min-w-0 flex-col gap-3">
+                  <FieldRow>
+                    <FieldCopy>
+                      <FieldHeading>
+                        <FieldTitle>Letter spacing</FieldTitle>
+                        <InfoHint text="Fine-tune the spacing between characters for the code font across preview, export, and editing." />
+                      </FieldHeading>
+                      <FieldDescription>
+                        Negative values tighten the text; positive values spread
+                        it out.
+                      </FieldDescription>
+                    </FieldCopy>
+                    <SliderValuePill>
+                      {formatStyleValue(typography.codeLetterSpacing)}px
+                    </SliderValuePill>
+                  </FieldRow>
+                  <RangeInput
+                    min={CODE_LETTER_SPACING_MIN}
+                    max={CODE_LETTER_SPACING_MAX}
+                    step={CODE_LETTER_SPACING_STEP}
+                    value={typography.codeLetterSpacing}
+                    onChange={(event) =>
+                      onUpdateTypography({
+                        codeLetterSpacing: Number(event.target.value),
+                      })
+                    }
+                  />
+                </div>
+              </div>
             </FieldCard>
 
             <FieldCard compact className="gap-[14px]">
