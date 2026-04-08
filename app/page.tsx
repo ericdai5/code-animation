@@ -10,17 +10,19 @@ import {
 } from "react";
 
 import { CodeEditorPanel } from "@/components/storyboard/code-editor-panel";
-import { ColorPanel } from "@/components/storyboard/color-panel";
-import { PlaybackPanel } from "@/components/storyboard/playback-panel";
 import { PreviewPanel } from "@/components/storyboard/preview-panel";
 import { StoryboardSidebar } from "@/components/storyboard/storyboard-sidebar";
+import { StylesPanel } from "@/components/storyboard/styles-panel";
 import { TransitionPanel } from "@/components/storyboard/transition-panel";
 import {
   CanvasAnimator,
+  DEFAULT_TYPOGRAPHY,
   measureStaticTextHeight,
   measureTransitionMaxHeight,
   type ColorConfig,
+  normalizeTypographyConfig,
   type TransitionConfig,
+  type TypographyConfig,
 } from "@/lib/animator";
 import {
   buildInitialStoryboardState,
@@ -72,6 +74,10 @@ export default function Home() {
     inserted: "#15803d",
     deleted: "#dc2626",
   });
+  const [typography, setTypography] = useState<TypographyConfig>(
+    DEFAULT_TYPOGRAPHY,
+  );
+  const [stylesPanelExpanded, setStylesPanelExpanded] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animatorRef = useRef<CanvasAnimator | null>(null);
@@ -92,7 +98,6 @@ export default function Home() {
   const selectedStepHoldMs = selectedStep
     ? getResolvedStepHoldMs(selectedStep, resolvedActiveStepIndex, steps.length)
     : 0;
-  const exportPreset = getExportPreset(exportPresetId);
 
   useEffect(() => {
     if (activeStepId && !steps.some((step) => step.id === activeStepId) && steps[0]) {
@@ -140,6 +145,7 @@ export default function Home() {
 
     const animator = new CanvasAnimator(canvasRef.current);
     animatorRef.current = animator;
+    animator.typography = typography;
 
     document.fonts.ready.then(() => {
       animator.updateDpr();
@@ -161,8 +167,27 @@ export default function Home() {
     if (!animatorRef.current.running) animatorRef.current.drawPlaceholder();
   }, [colors]);
 
+  useEffect(() => {
+    if (!animatorRef.current) return;
+    animatorRef.current.typography = typography;
+    if (!animatorRef.current.running) animatorRef.current.drawPlaceholder();
+  }, [typography]);
+
+  useEffect(() => {
+    const animator = animatorRef.current;
+    if (!animator) return;
+    requestAnimationFrame(() => {
+      animator.updateDpr();
+      if (!animator.running) animator.drawPlaceholder();
+    });
+  }, [stylesPanelExpanded]);
+
   const updateColor = (key: keyof ColorConfig, value: string) => {
     setColors((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateTypography = (patch: Partial<TypographyConfig>) => {
+    setTypography((prev) => normalizeTypographyConfig({ ...prev, ...patch }));
   };
 
   const updateTransitionSettings = (
@@ -340,7 +365,14 @@ export default function Home() {
     setProgress(0);
   }, [halt]);
 
-  const exportVideo = useCallback(async () => {
+  const exportVideo = useCallback(
+    async (presetId?: ExportPresetId) => {
+    const effectivePresetId = presetId ?? exportPresetId;
+    const preset = getExportPreset(effectivePresetId);
+    if (presetId !== undefined) {
+      setExportPresetId(presetId);
+    }
+
     const animator = animatorRef.current;
     const canvas = canvasRef.current;
     if (!animator || !canvas) return;
@@ -368,16 +400,17 @@ export default function Home() {
 
       const logicalWidth = getCanvasLogicalWidth(
         canvas,
-        exportPreset.targetWidth,
+        preset.targetWidth,
       );
       const logicalHeight = Math.max(
-        measureStaticTextHeight(currentTransitions[0].fromStep.code),
+        measureStaticTextHeight(currentTransitions[0].fromStep.code, typography),
         ...currentTransitions.flatMap((item) => [
-          measureStaticTextHeight(item.toStep.code),
+          measureStaticTextHeight(item.toStep.code, typography),
           measureTransitionMaxHeight(
             item.fromStep.code,
             item.toStep.code,
             item.settings,
+            typography,
           ),
         ]),
       );
@@ -387,8 +420,9 @@ export default function Home() {
 
       exportAnimator = new CanvasAnimator(exportCanvas);
       exportAnimator.colors = { ...colors };
+      exportAnimator.typography = typography;
       exportAnimator.updateDpr(
-        Math.max(1, exportPreset.targetWidth / logicalWidth),
+        Math.max(1, preset.targetWidth / logicalWidth),
       );
       exportAnimator.setFixedViewport({
         width: logicalWidth,
@@ -416,7 +450,7 @@ export default function Home() {
         : "video/webm";
       recorder = new MediaRecorder(stream, {
         mimeType,
-        videoBitsPerSecond: exportPreset.bitrate,
+        videoBitsPerSecond: preset.bitrate,
       });
       const activeRecorder = recorder;
       const chunks: Blob[] = [];
@@ -454,7 +488,7 @@ export default function Home() {
       const link = document.createElement("a");
       link.href = url;
       link.download =
-        `code-animation-${exportPreset.id}.` +
+        `code-animation-${preset.id}.` +
         (mimeType.includes("webm") ? "webm" : "mp4");
       document.body.appendChild(link);
       link.click();
@@ -471,7 +505,9 @@ export default function Home() {
       setStepLabel("");
       setExporting(false);
     }
-  }, [colors, exportPreset, halt, playTransitionSequence]);
+  },
+    [colors, exportPresetId, halt, playTransitionSequence, typography],
+  );
 
   const updateStep = (stepId: string, value: string) => {
     setSteps((prev) =>
@@ -643,6 +679,7 @@ export default function Home() {
                   <>
                     <CodeEditorPanel
                       activeStepIndex={resolvedActiveStepIndex}
+                      typography={typography}
                       selectedStep={selectedStep}
                       selectedStepHoldMs={selectedStepHoldMs}
                       stepCount={steps.length}
@@ -666,24 +703,43 @@ export default function Home() {
               })()}
           </section>
 
-          <section className="flex h-full min-w-0 flex-col overflow-y-auto">
-            <PreviewPanel
-              canvasRef={canvasRef}
-              progress={progress}
-              running={running}
-              stepLabel={stepLabel}
-            />
-            <PlaybackPanel
-              exportPreset={exportPreset}
-              exportPresetId={exportPresetId}
-              exporting={exporting}
-              running={running}
-              onAnimateAll={animateAll}
-              onExportVideo={exportVideo}
-              onPresetChange={setExportPresetId}
-              onReset={reset}
-            />
-            <ColorPanel colors={colors} onUpdateColor={updateColor} />
+          <section className="flex h-full min-w-0 flex-col overflow-hidden">
+            <div
+              className={
+                stylesPanelExpanded
+                  ? "min-h-0 flex-[1.25] overflow-y-auto"
+                  : "flex min-h-0 flex-1 flex-col overflow-hidden"
+              }
+            >
+              <PreviewPanel
+                canvasRef={canvasRef}
+                exportPresetId={exportPresetId}
+                exporting={exporting}
+                fillAvailableHeight={!stylesPanelExpanded}
+                onAnimateAll={animateAll}
+                onExportVideo={(presetId) => void exportVideo(presetId)}
+                onReset={reset}
+                progress={progress}
+                running={running}
+                stepLabel={stepLabel}
+              />
+            </div>
+            <div
+              className={
+                stylesPanelExpanded
+                  ? "flex min-h-0 flex-1 flex-col justify-end overflow-hidden"
+                  : "shrink-0"
+              }
+            >
+              <StylesPanel
+                colors={colors}
+                expanded={stylesPanelExpanded}
+                onExpandedChange={setStylesPanelExpanded}
+                typography={typography}
+                onUpdateColor={updateColor}
+                onUpdateTypography={updateTypography}
+              />
+            </div>
           </section>
         </div>
       </div>

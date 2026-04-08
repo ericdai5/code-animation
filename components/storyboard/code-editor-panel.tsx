@@ -19,9 +19,11 @@ import {
   STEP_HOLD_STEP_MS,
   type StepItem,
 } from "@/lib/storyboard-editor";
+import { type TypographyConfig } from "@/lib/animator";
 
 interface CodeEditorPanelProps {
   activeStepIndex: number;
+  typography: TypographyConfig;
   selectedStep: StepItem | undefined;
   selectedStepHoldMs: number;
   stepCount: number;
@@ -34,6 +36,7 @@ interface CodeEditorPanelProps {
 
 export function CodeEditorPanel({
   activeStepIndex,
+  typography,
   selectedStep,
   selectedStepHoldMs,
   stepCount,
@@ -89,6 +92,11 @@ export function CodeEditorPanel({
       <div className="flex min-h-0 flex-1 flex-col">
         <textarea
           className="w-full flex-1 resize-none bg-transparent px-6 py-6 font-mono text-[0.9rem] text-slate-900 outline-none placeholder:text-slate-500 [line-height:1.8] [tab-size:2]"
+          style={{
+            fontWeight: typography.codeFontWeight,
+            lineHeight: typography.codeLineSpacing,
+            letterSpacing: `${typography.codeLetterSpacing}px`,
+          }}
           spellCheck={false}
           placeholder="Paste code..."
           value={selectedStep?.code ?? ""}

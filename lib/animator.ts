@@ -1,13 +1,7 @@
-import {
-  layoutNextLine,
-  prepareWithSegments,
-  type LayoutCursor,
-} from "@chenglou/pretext";
 import { diffLines, type OpType } from "./diff";
 
 // ---- Config ----
 const FONT_SIZE = 14;
-const LINE_HEIGHT = 26;
 const PAD_X = 28;
 const PAD_Y = 24;
 const MIN_TRANSITION_MS = 200;
@@ -20,6 +14,20 @@ export interface ColorConfig {
 }
 
 export type HighlightMode = "none" | "line" | "inline";
+export const CODE_FONT_WEIGHT_OPTIONS = [400, 500, 700] as const;
+export type CodeFontWeight = (typeof CODE_FONT_WEIGHT_OPTIONS)[number];
+export const CODE_LINE_SPACING_MIN = 1.4;
+export const CODE_LINE_SPACING_MAX = 2.4;
+export const CODE_LINE_SPACING_STEP = 0.05;
+export const CODE_LETTER_SPACING_MIN = -0.5;
+export const CODE_LETTER_SPACING_MAX = 2;
+export const CODE_LETTER_SPACING_STEP = 0.05;
+
+export interface TypographyConfig {
+  codeFontWeight: CodeFontWeight;
+  codeLineSpacing: number;
+  codeLetterSpacing: number;
+}
 
 export interface TransitionConfig {
   durationMs: number;
@@ -53,6 +61,53 @@ const DEFAULT_COLORS: ColorConfig = {
   deleted: "#dc2626",
 };
 
+export const DEFAULT_TYPOGRAPHY: TypographyConfig = {
+  codeFontWeight: 400,
+  codeLineSpacing: 1.8,
+  codeLetterSpacing: 0,
+};
+
+export function normalizeTypographyConfig(
+  config?: Partial<TypographyConfig>
+): TypographyConfig {
+  const codeFontWeight = config?.codeFontWeight;
+  const codeLineSpacing = config?.codeLineSpacing;
+  const codeLetterSpacing = config?.codeLetterSpacing;
+
+  return {
+    codeFontWeight: CODE_FONT_WEIGHT_OPTIONS.includes(
+      codeFontWeight as CodeFontWeight
+    )
+      ? (codeFontWeight as CodeFontWeight)
+      : DEFAULT_TYPOGRAPHY.codeFontWeight,
+    codeLineSpacing:
+      typeof codeLineSpacing === "number" && Number.isFinite(codeLineSpacing)
+        ? Math.min(
+            CODE_LINE_SPACING_MAX,
+            Math.max(CODE_LINE_SPACING_MIN, roundStyleValue(codeLineSpacing))
+          )
+        : DEFAULT_TYPOGRAPHY.codeLineSpacing,
+    codeLetterSpacing:
+      typeof codeLetterSpacing === "number" && Number.isFinite(codeLetterSpacing)
+        ? Math.min(
+            CODE_LETTER_SPACING_MAX,
+            Math.max(
+              CODE_LETTER_SPACING_MIN,
+              roundStyleValue(codeLetterSpacing)
+            )
+          )
+        : DEFAULT_TYPOGRAPHY.codeLetterSpacing,
+  };
+}
+
+function roundStyleValue(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getCodeLineHeightPx(typography: TypographyConfig) {
+  return FONT_SIZE * typography.codeLineSpacing;
+}
+
 function withAlpha(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -83,9 +138,6 @@ interface ReplaceLineMetrics {
   removedEndWidth: number;
   addedEndWidth: number;
 }
-
-const PRETEXT_LINE_START: LayoutCursor = { segmentIndex: 0, graphemeIndex: 0 };
-const PRETEXT_UNBOUNDED_WIDTH = 100_000;
 
 function getReplaceLineSegments(
   beforeText: string,
@@ -257,18 +309,22 @@ function getRenderedLineAlpha(type: AnimationOpType, progress: number) {
   return progress;
 }
 
-export function measureStaticTextHeight(text: string) {
+export function measureStaticTextHeight(
+  text: string,
+  typography: TypographyConfig = DEFAULT_TYPOGRAPHY
+) {
   const lines = text.split("\n");
-  return Math.max(240, PAD_Y * 2 + lines.length * LINE_HEIGHT);
+  return Math.max(240, PAD_Y * 2 + lines.length * getCodeLineHeightPx(typography));
 }
 
 export function measureTransitionMaxHeight(
   before: string,
   after: string,
-  config: TransitionConfig
+  config: TransitionConfig,
+  typography: TypographyConfig = DEFAULT_TYPOGRAPHY
 ) {
   const ops = buildAnimationOps(before, after, config.fuzzyDiff);
-  return Math.max(240, PAD_Y * 2 + ops.length * LINE_HEIGHT);
+  return Math.max(240, PAD_Y * 2 + ops.length * getCodeLineHeightPx(typography));
 }
 
 export class CanvasAnimator {
@@ -278,6 +334,7 @@ export class CanvasAnimator {
   private rafId: number | null = null;
   private fixedViewport: FixedViewport | null = null;
   private drawListener: (() => void) | null = null;
+  private typographyConfig: TypographyConfig;
   private monoFont: string;
   private sansFont: string;
   private textWidthCache = new Map<string, number>();
@@ -288,8 +345,19 @@ export class CanvasAnimator {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.dpr = window.devicePixelRatio || 1;
+    this.typographyConfig = { ...DEFAULT_TYPOGRAPHY };
     this.monoFont = `${FONT_SIZE}px monospace`;
     this.sansFont = `14px sans-serif`;
+    this.resolveFont();
+  }
+
+  get typography() {
+    return this.typographyConfig;
+  }
+
+  set typography(nextTypography: TypographyConfig) {
+    this.typographyConfig = normalizeTypographyConfig(nextTypography);
+    this.textWidthCache.clear();
     this.resolveFont();
   }
 
@@ -298,8 +366,9 @@ export class CanvasAnimator {
     const style = getComputedStyle(root);
     const monoFamily = style.getPropertyValue("--font-jetbrains-mono").trim();
     const sansFamily = style.getPropertyValue("--font-dm-sans").trim();
-    this.monoFont = `${FONT_SIZE}px ${monoFamily || '"JetBrains Mono"'}, monospace`;
-    this.sansFont = `14px ${sansFamily || '"DM Sans"'}, sans-serif`;
+    const { codeFontWeight } = this.typographyConfig;
+    this.monoFont = `${codeFontWeight} ${FONT_SIZE}px ${monoFamily || '"JetBrains Mono"'}, monospace`;
+    this.sansFont = `500 14px ${sansFamily || '"DM Sans"'}, sans-serif`;
   }
 
   updateDpr(nextDpr?: number) {
@@ -320,25 +389,63 @@ export class CanvasAnimator {
     this.drawListener?.();
   }
 
+  private getCodeLineHeight() {
+    return getCodeLineHeightPx(this.typographyConfig);
+  }
+
+  private getCodeLetterSpacing() {
+    return this.typographyConfig.codeLetterSpacing;
+  }
+
+  private getCodeTextY(y: number) {
+    return y + (this.getCodeLineHeight() - FONT_SIZE) / 2;
+  }
+
+  private drawCodeText(text: string, x: number, y: number) {
+    if (!text) return;
+
+    const letterSpacing = this.getCodeLetterSpacing();
+
+    if (letterSpacing === 0) {
+      this.ctx.fillText(text, x, y);
+      return;
+    }
+
+    let cursorX = x;
+    const graphemes = Array.from(text);
+
+    graphemes.forEach((grapheme, index) => {
+      this.ctx.fillText(grapheme, cursorX, y);
+      cursorX += this.ctx.measureText(grapheme).width;
+
+      if (index < graphemes.length - 1) {
+        cursorX += letterSpacing;
+      }
+    });
+  }
+
   private measureInlineWidth(text: string) {
     if (!text) return 0;
 
-    const cacheKey = `${this.monoFont}\u0000${text}`;
+    const cacheKey = `${this.monoFont}\u0000${this.getCodeLetterSpacing()}\u0000${text}`;
     const cached = this.textWidthCache.get(cacheKey);
     if (cached !== undefined) return cached;
 
-    const prepared = prepareWithSegments(text, this.monoFont, {
-      whiteSpace: "pre-wrap",
-    });
-    const line = layoutNextLine(
-      prepared,
-      PRETEXT_LINE_START,
-      PRETEXT_UNBOUNDED_WIDTH
-    );
-    const width = line?.width ?? 0;
+    this.ctx.font = this.monoFont;
+    const graphemes = Array.from(text);
+    const letterSpacing = this.getCodeLetterSpacing();
+    let width = 0;
 
-    this.textWidthCache.set(cacheKey, width);
-    return width;
+    graphemes.forEach((grapheme, index) => {
+      width += this.ctx.measureText(grapheme).width;
+      if (index < graphemes.length - 1) {
+        width += letterSpacing;
+      }
+    });
+
+    const resolvedWidth = Math.max(0, width);
+    this.textWidthCache.set(cacheKey, resolvedWidth);
+    return resolvedWidth;
   }
 
   private getReplaceLineMetrics(
@@ -379,6 +486,7 @@ export class CanvasAnimator {
 
   private drawReplaceLine(line: ReplaceLineState, y: number, insertOnly = false, highlight: HighlightMode = "line") {
     const ctx = this.ctx;
+    const lineHeight = this.getCodeLineHeight();
     const { text: colText, inserted, deleted } = this.colors;
     const { prefix, removed, added, suffix } = line.segments;
     const {
@@ -393,7 +501,7 @@ export class CanvasAnimator {
     const insertProgress =
       progress <= 0.16 ? 0 : easeOutCubic((progress - 0.16) / 0.84);
     const removeAlpha = Math.max(0, 1 - Math.min(1, progress / 0.62));
-    const textY = y + (LINE_HEIGHT - FONT_SIZE) / 2;
+    const textY = this.getCodeTextY(y);
     const baseX = PAD_X;
     const segmentX = baseX + prefixWidth;
     const suffixOldX = baseX + removedEndWidth;
@@ -404,44 +512,44 @@ export class CanvasAnimator {
     if (highlight === "line") {
       ctx.globalAlpha = Math.max(insertProgress, removeAlpha) * 0.6;
       ctx.fillStyle = withAlpha(inserted, 0.1);
-      ctx.fillRect(0, y, this.canvas.width / this.dpr, LINE_HEIGHT);
+      ctx.fillRect(0, y, this.canvas.width / this.dpr, lineHeight);
     } else if (highlight === "inline") {
       if (removed && removeAlpha > 0.001) {
         ctx.globalAlpha = removeAlpha * 0.6;
         ctx.fillStyle = withAlpha(deleted, 0.1);
-        ctx.fillRect(segmentX, y, removedWidth, LINE_HEIGHT);
+        ctx.fillRect(segmentX, y, removedWidth, lineHeight);
       }
       if (added && insertProgress > 0.001) {
         ctx.globalAlpha = insertProgress * 0.6;
         ctx.fillStyle = withAlpha(inserted, 0.1);
-        ctx.fillRect(segmentX, y, addedWidth * insertProgress, LINE_HEIGHT);
+        ctx.fillRect(segmentX, y, addedWidth * insertProgress, lineHeight);
       }
     }
 
     ctx.globalAlpha = 1;
     ctx.fillStyle = colText;
-    ctx.fillText(prefix, baseX, textY);
+    this.drawCodeText(prefix, baseX, textY);
 
     if (removed && removeAlpha > 0.001) {
       ctx.globalAlpha = removeAlpha;
       ctx.fillStyle = insertOnly ? colText : deleted;
-      ctx.fillText(removed, segmentX, textY);
+      this.drawCodeText(removed, segmentX, textY);
     }
 
     if (added && insertProgress > 0.001) {
       ctx.save();
       ctx.beginPath();
-      ctx.rect(segmentX, y, addedWidth * insertProgress, LINE_HEIGHT);
+      ctx.rect(segmentX, y, addedWidth * insertProgress, lineHeight);
       ctx.clip();
       ctx.globalAlpha = insertProgress;
       ctx.fillStyle = inserted;
-      ctx.fillText(added, segmentX, textY);
+      this.drawCodeText(added, segmentX, textY);
       ctx.restore();
     }
 
     ctx.globalAlpha = 1;
     ctx.fillStyle = colText;
-    ctx.fillText(suffix, suffixX, textY);
+    this.drawCodeText(suffix, suffixX, textY);
     ctx.globalAlpha = 1;
   }
 
@@ -449,6 +557,7 @@ export class CanvasAnimator {
     const ctx = this.ctx;
     ctx.font = this.monoFont;
     ctx.textBaseline = "top";
+    const lineHeight = this.getCodeLineHeight();
 
     let totalH = PAD_Y;
     for (const line of lines) {
@@ -456,8 +565,8 @@ export class CanvasAnimator {
       const renderProgress = getRenderedLineProgress(line.type, line.progress);
       totalH +=
         line.type === "d" || line.type === "i"
-          ? LINE_HEIGHT * renderProgress
-          : LINE_HEIGHT;
+          ? lineHeight * renderProgress
+          : lineHeight;
     }
     totalH = Math.max(240, totalH + PAD_Y);
 
@@ -479,12 +588,12 @@ export class CanvasAnimator {
       if (line.type === "k") {
         ctx.globalAlpha = 1;
         ctx.fillStyle = colText;
-        ctx.fillText(text, PAD_X, y + (LINE_HEIGHT - FONT_SIZE) / 2);
-        y += LINE_HEIGHT;
+        this.drawCodeText(text, PAD_X, this.getCodeTextY(y));
+        y += lineHeight;
       } else if (line.type === "d") {
         const renderProgress = getRenderedLineProgress(line.type, line.progress);
         const renderAlpha = getRenderedLineAlpha(line.type, line.progress);
-        const h = LINE_HEIGHT * renderProgress;
+        const h = lineHeight * renderProgress;
         if (h < 0.5) continue;
         ctx.save();
         ctx.beginPath();
@@ -493,18 +602,18 @@ export class CanvasAnimator {
         if (highlight === "line") {
           ctx.globalAlpha = renderAlpha * 0.6;
           ctx.fillStyle = withAlpha(deleted, 0.1);
-          ctx.fillRect(0, y, cw, LINE_HEIGHT);
+          ctx.fillRect(0, y, cw, lineHeight);
         }
         ctx.globalAlpha = renderAlpha;
         ctx.fillStyle = deleted;
-        ctx.fillText(text, PAD_X, y + (LINE_HEIGHT - FONT_SIZE) / 2);
+        this.drawCodeText(text, PAD_X, this.getCodeTextY(y));
         ctx.restore();
         ctx.globalAlpha = 1;
         y += h;
       } else if (line.type === "i") {
         const renderProgress = getRenderedLineProgress(line.type, line.progress);
         const renderAlpha = getRenderedLineAlpha(line.type, line.progress);
-        const h = LINE_HEIGHT * renderProgress;
+        const h = lineHeight * renderProgress;
         if (h < 0.5) continue;
         ctx.save();
         ctx.beginPath();
@@ -513,17 +622,17 @@ export class CanvasAnimator {
         if (highlight === "line") {
           ctx.globalAlpha = renderAlpha * 0.6;
           ctx.fillStyle = withAlpha(inserted, 0.1);
-          ctx.fillRect(0, y, cw, LINE_HEIGHT);
+          ctx.fillRect(0, y, cw, lineHeight);
         }
         ctx.globalAlpha = renderAlpha;
         ctx.fillStyle = inserted;
-        ctx.fillText(text, PAD_X, y + (LINE_HEIGHT - FONT_SIZE) / 2);
+        this.drawCodeText(text, PAD_X, this.getCodeTextY(y));
         ctx.restore();
         ctx.globalAlpha = 1;
         y += h;
       } else if (line.type === "r") {
         this.drawReplaceLine(line, y, insertOnly, highlight);
-        y += LINE_HEIGHT;
+        y += lineHeight;
       }
     }
 
@@ -532,18 +641,15 @@ export class CanvasAnimator {
 
   drawStaticText(text: string) {
     const lines = text.split("\n");
-    const h = measureStaticTextHeight(text);
+    const lineHeight = this.getCodeLineHeight();
+    const h = measureStaticTextHeight(text, this.typographyConfig);
     this.sizeCanvas(h);
     this.clearCanvas(h);
     this.ctx.font = this.monoFont;
     this.ctx.textBaseline = "top";
     this.ctx.fillStyle = this.colors.text;
     for (let i = 0; i < lines.length; i++) {
-      this.ctx.fillText(
-        lines[i],
-        PAD_X,
-        PAD_Y + i * LINE_HEIGHT + (LINE_HEIGHT - FONT_SIZE) / 2
-      );
+      this.drawCodeText(lines[i], PAD_X, PAD_Y + i * lineHeight + (lineHeight - FONT_SIZE) / 2);
     }
 
     this.notifyDraw();
@@ -559,7 +665,7 @@ export class CanvasAnimator {
     this.ctx.fillText(
       "Press Animate All to see the transitions...",
       PAD_X,
-      PAD_Y + (LINE_HEIGHT - FONT_SIZE) / 2
+      this.getCodeTextY(PAD_Y)
     );
     this.ctx.globalAlpha = 1;
     this.notifyDraw();
