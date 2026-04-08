@@ -56,14 +56,14 @@ type AnimationDiffOp =
   | { t: "r"; v: string; segments: ReplaceLineSegments };
 
 const DEFAULT_COLORS: ColorConfig = {
-  bg: "#f8fbfc",
-  text: "#13232b",
-  inserted: "#15803d",
+  bg: "#ffffff",
+  text: "#969696",
+  inserted: "#000000",
   deleted: "#dc2626",
 };
 
 export const DEFAULT_TYPOGRAPHY: TypographyConfig = {
-  codeFontWeight: 400,
+  codeFontWeight: 500,
   codeLineSpacing: 1.8,
   codeLetterSpacing: 0,
 };

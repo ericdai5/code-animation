@@ -83,9 +83,9 @@ export default function Home() {
     DEFAULT_EXPORT_PRESET_ID,
   );
   const [colors, setColors] = useState<ColorConfig>({
-    bg: "#f8fbfc",
-    text: "#13232b",
-    inserted: "#15803d",
+    bg: "#ffffff",
+    text: "#969696",
+    inserted: "#000000",
     deleted: "#dc2626",
   });
   const [typography, setTypography] = useState<TypographyConfig>(
