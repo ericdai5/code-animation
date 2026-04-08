@@ -3,9 +3,6 @@ import { ExportIcon, PauseIcon, PlayIcon, ResetIcon } from "@/components/ui/icon
 import { InfoHint } from "@/components/ui/info-hint";
 import {
   Panel,
-  PanelEyebrow,
-  PanelHeader,
-  PanelTitle,
   SliderValuePill,
 } from "@/components/ui/panel";
 import {
@@ -46,14 +43,7 @@ export function PlaybackPanel({
 }: PlaybackPanelProps) {
   return (
     <Panel>
-      <PanelHeader compact>
-        <div>
-          <PanelEyebrow>Controls</PanelEyebrow>
-          <PanelTitle>Playback</PanelTitle>
-        </div>
-      </PanelHeader>
-
-      <div className="px-5 pt-[18px]">
+      <div className="px-5 pt-5">
         <FieldCard compact className="gap-[14px]">
           <FieldRow>
             <FieldCopy>

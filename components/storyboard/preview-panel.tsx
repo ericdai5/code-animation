@@ -17,7 +17,7 @@ export function PreviewPanel({
   stepLabel,
 }: PreviewPanelProps) {
   return (
-    <Panel>
+    <Panel className="max-[820px]:border-t-0 border-b-0">
       <div className="flex flex-wrap items-center gap-[14px] border-b border-slate-500/20 bg-gradient-to-b from-slate-50/95 to-slate-100/95 px-5 py-[18px]">
         <span className="inline-flex items-center gap-2 whitespace-nowrap text-[0.77rem] font-bold uppercase tracking-[0.14em] text-slate-500">
           <span

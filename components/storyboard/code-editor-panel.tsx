@@ -1,13 +1,7 @@
 import { type KeyboardEvent } from "react";
 
 import { InfoHint } from "@/components/ui/info-hint";
-import {
-  Panel,
-  PanelEyebrow,
-  PanelHeader,
-  PanelTitle,
-  SliderValuePill,
-} from "@/components/ui/panel";
+import { Panel, SliderValuePill } from "@/components/ui/panel";
 import {
   FieldCard,
   FieldCopy,
@@ -17,6 +11,7 @@ import {
   FieldTitle,
   RangeInput,
 } from "@/components/ui/settings";
+import { cn } from "@/lib/cn";
 import {
   formatDuration,
   STEP_HOLD_MAX_MS,
@@ -30,6 +25,8 @@ interface CodeEditorPanelProps {
   selectedStep: StepItem | undefined;
   selectedStepHoldMs: number;
   stepCount: number;
+  /** When a transition panel sits below this step, hide the shared bottom border. */
+  transitionBelow: boolean;
   onCodeKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onUpdateCode: (value: string) => void;
   onUpdateHoldDuration: (durationMs: number) => void;
@@ -40,6 +37,7 @@ export function CodeEditorPanel({
   selectedStep,
   selectedStepHoldMs,
   stepCount,
+  transitionBelow,
   onCodeKeyDown,
   onUpdateCode,
   onUpdateHoldDuration,
@@ -49,15 +47,13 @@ export function CodeEditorPanel({
   return (
     <Panel
       as="section"
-      className="focus-within:border-teal-700 focus-within:shadow-[0_12px_28px_rgba(27,52,70,0.08)] focus-within:ring-4 focus-within:ring-teal-700/10"
+      className={cn(
+        "flex min-h-0 flex-1 flex-col focus-within:border-teal-700 focus-within:shadow-[0_12px_28px_rgba(27,52,70,0.08)] focus-within:ring-4 focus-within:ring-teal-700/10",
+        "max-[1080px]:border-t-0",
+        transitionBelow && "border-b-0",
+        "min-[821px]:border-r-0 min-[1081px]:border-l-0",
+      )}
     >
-      <PanelHeader>
-        <div>
-          <PanelEyebrow>Code</PanelEyebrow>
-          <PanelTitle>Code</PanelTitle>
-        </div>
-      </PanelHeader>
-
       <div className="border-b border-slate-500/20 px-5 py-5">
         <FieldCard compact>
           <FieldRow>
@@ -72,13 +68,10 @@ export function CodeEditorPanel({
                   }
                 />
               </FieldHeading>
-              <FieldDescription>
-                {isLastStep
-                  ? "How long the final code frame remains visible."
-                  : "How long this code remains visible before moving to the next code block."}
-              </FieldDescription>
             </FieldCopy>
-            <SliderValuePill>{formatDuration(selectedStepHoldMs)}</SliderValuePill>
+            <SliderValuePill>
+              {formatDuration(selectedStepHoldMs)}
+            </SliderValuePill>
           </FieldRow>
 
           <RangeInput
@@ -86,14 +79,16 @@ export function CodeEditorPanel({
             max={STEP_HOLD_MAX_MS}
             step={STEP_HOLD_STEP_MS}
             value={selectedStepHoldMs}
-            onChange={(event) => onUpdateHoldDuration(Number(event.target.value))}
+            onChange={(event) =>
+              onUpdateHoldDuration(Number(event.target.value))
+            }
           />
         </FieldCard>
       </div>
 
-      <div>
+      <div className="flex min-h-0 flex-1 flex-col">
         <textarea
-          className="min-h-[480px] w-full resize-y bg-transparent px-6 py-6 font-mono text-[0.9rem] text-slate-900 outline-none placeholder:text-slate-500 [line-height:1.8] [tab-size:2] min-[1081px]:min-h-[660px] min-[1321px]:min-h-[760px]"
+          className="w-full flex-1 resize-none bg-transparent px-6 py-6 font-mono text-[0.9rem] text-slate-900 outline-none placeholder:text-slate-500 [line-height:1.8] [tab-size:2]"
           spellCheck={false}
           placeholder="Paste code..."
           value={selectedStep?.code ?? ""}

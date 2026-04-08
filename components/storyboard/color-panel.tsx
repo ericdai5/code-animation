@@ -1,5 +1,5 @@
 import { type ColorConfig } from "@/lib/animator";
-import { Panel, PanelEyebrow, PanelHeader, PanelTitle } from "@/components/ui/panel";
+import { Panel } from "@/components/ui/panel";
 
 interface ColorPanelProps {
   colors: ColorConfig;
@@ -15,14 +15,7 @@ const COLOR_OPTIONS: [keyof ColorConfig, string][] = [
 
 export function ColorPanel({ colors, onUpdateColor }: ColorPanelProps) {
   return (
-    <Panel>
-      <PanelHeader compact>
-        <div>
-          <PanelEyebrow>Theme</PanelEyebrow>
-          <PanelTitle>Preview Colors</PanelTitle>
-        </div>
-      </PanelHeader>
-
+    <Panel className="border-t-0">
       <div className="flex flex-wrap gap-3 px-5 py-5">
         {COLOR_OPTIONS.map(([key, label]) => (
           <label

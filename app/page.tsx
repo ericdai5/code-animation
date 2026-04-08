@@ -14,6 +14,7 @@ import { ColorPanel } from "@/components/storyboard/color-panel";
 import { PlaybackPanel } from "@/components/storyboard/playback-panel";
 import { PreviewPanel } from "@/components/storyboard/preview-panel";
 import { StoryboardSidebar } from "@/components/storyboard/storyboard-sidebar";
+import { TransitionPanel } from "@/components/storyboard/transition-panel";
 import {
   CanvasAnimator,
   measureStaticTextHeight,
@@ -51,10 +52,10 @@ export default function Home() {
   const [steps, setSteps] = useState<StepItem[]>(INITIAL_STORYBOARD.steps);
   const [activeStepId, setActiveStepId] = useState(INITIAL_STEPS[0]?.id ?? "");
   const [draggingStepId, setDraggingStepId] = useState<string | null>(null);
-  const [dragOverStepId, setDragOverStepId] = useState<string | null>(null);
-  const [expandedTransitions, setExpandedTransitions] = useState<
-    Record<string, boolean>
-  >({});
+
+  const [activeTransitionId, setActiveTransitionId] = useState<string | null>(
+    null,
+  );
   const [transitionSettings, setTransitionSettings] = useState<
     Record<string, TransitionConfig>
   >(INITIAL_STORYBOARD.transitionSettings);
@@ -82,11 +83,11 @@ export default function Home() {
   transitionSettingsRef.current = transitionSettings;
 
   const activeStepIndex = steps.findIndex((step) => step.id === activeStepId);
-  const selectedStep = activeStepIndex >= 0 ? steps[activeStepIndex] : steps[0];
+  const selectedStep = activeStepIndex >= 0 ? steps[activeStepIndex] : undefined;
   const resolvedActiveStepId = selectedStep?.id ?? "";
   const resolvedActiveStepIndex = selectedStep
     ? steps.findIndex((step) => step.id === selectedStep.id)
-    : 0;
+    : -1;
   const transitions = buildResolvedTransitions(steps, transitionSettings);
   const selectedStepHoldMs = selectedStep
     ? getResolvedStepHoldMs(selectedStep, resolvedActiveStepIndex, steps.length)
@@ -94,7 +95,7 @@ export default function Home() {
   const exportPreset = getExportPreset(exportPresetId);
 
   useEffect(() => {
-    if (!steps.some((step) => step.id === activeStepId) && steps[0]) {
+    if (activeStepId && !steps.some((step) => step.id === activeStepId) && steps[0]) {
       setActiveStepId(steps[0].id);
     }
   }, [activeStepId, steps]);
@@ -119,7 +120,7 @@ export default function Home() {
 
         setSteps(nextStoryboard.steps);
         setTransitionSettings(nextStoryboard.transitionSettings);
-        setExpandedTransitions({});
+        setActiveTransitionId(null);
         setActiveStepId(nextStoryboard.steps[0]?.id ?? "");
         nextStepIdRef.current = nextStoryboard.steps.length + 1;
       } catch (error) {
@@ -193,11 +194,10 @@ export default function Home() {
     );
   };
 
-  const toggleTransitionExpanded = (transitionId: string) => {
-    setExpandedTransitions((prev) => ({
-      ...prev,
-      [transitionId]: !(prev[transitionId] ?? false),
-    }));
+  const selectTransition = (transitionId: string) => {
+    setActiveTransitionId((prev) =>
+      prev === transitionId ? null : transitionId,
+    );
   };
 
   const halt = useCallback(() => {
@@ -534,7 +534,6 @@ export default function Home() {
 
   const clearDragState = () => {
     setDraggingStepId(null);
-    setDragOverStepId(null);
   };
 
   const handleDragStart = (
@@ -542,7 +541,6 @@ export default function Home() {
     stepId: string,
   ) => {
     setDraggingStepId(stepId);
-    setDragOverStepId(stepId);
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", stepId);
   };
@@ -551,19 +549,36 @@ export default function Home() {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     if (draggingStepId && draggingStepId !== stepId) {
-      setDragOverStepId(stepId);
+      moveStep(draggingStepId, stepId);
     }
   };
 
-  const handleDrop = (event: DragEvent<HTMLDivElement>, stepId: string) => {
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
-    const sourceId = draggingStepId || event.dataTransfer.getData("text/plain");
-
-    if (sourceId && sourceId !== stepId) {
-      moveStep(sourceId, stepId);
-    }
-
     clearDragState();
+  };
+
+  const handleDropOnTrash = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (draggingStepId && steps.length > 2) {
+      removeStep(draggingStepId);
+    }
+    clearDragState();
+  };
+
+  const handleTrashDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const toggleStep = (stepId: string) => {
+    if (activeStepId === stepId) {
+      setActiveStepId("");
+      setActiveTransitionId(null);
+    } else {
+      setActiveStepId(stepId);
+      setActiveTransitionId(null);
+    }
   };
 
   const handleStepCardKey = (
@@ -572,7 +587,7 @@ export default function Home() {
   ) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      setActiveStepId(stepId);
+      toggleStep(stepId);
     }
   };
 
@@ -600,13 +615,12 @@ export default function Home() {
         className="pointer-events-none fixed inset-0 z-[9999]"
         style={{ backgroundImage: NOISE_BACKGROUND }}
       />
-      <div className="mx-auto max-w-[1680px]">
-        <div className="grid items-start gap-0 min-[821px]:grid-cols-2 min-[1081px]:grid-cols-[minmax(270px,320px)_minmax(360px,1fr)_minmax(320px,0.88fr)] min-[1321px]:grid-cols-[minmax(290px,340px)_minmax(420px,1.05fr)_minmax(360px,0.92fr)]">
+      <div className="mx-auto h-full max-w-[1680px]">
+        <div className="grid h-full gap-0 min-[821px]:grid-cols-2 min-[1081px]:grid-cols-[minmax(220px,260px)_minmax(360px,1fr)_minmax(320px,0.88fr)] min-[1321px]:grid-cols-[minmax(240px,280px)_minmax(420px,1.05fr)_minmax(360px,0.92fr)]">
           <StoryboardSidebar
             activeStepId={resolvedActiveStepId}
+            activeTransitionId={activeTransitionId}
             draggingStepId={draggingStepId}
-            dragOverStepId={dragOverStepId}
-            expandedTransitions={expandedTransitions}
             steps={steps}
             transitions={transitions}
             onAddStep={addStep}
@@ -614,30 +628,45 @@ export default function Home() {
             onDragOver={handleDragOver}
             onDragStart={handleDragStart}
             onDrop={handleDrop}
-            onRemoveStep={removeStep}
-            onSelectStep={setActiveStepId}
+            onDropOnTrash={handleDropOnTrash}
+            onTrashDragOver={handleTrashDragOver}
+            onSelectStep={toggleStep}
+            onSelectTransition={selectTransition}
             onStepCardKey={handleStepCardKey}
-            onToggleTransitionExpanded={toggleTransitionExpanded}
-            onUpdateTransitionSettings={updateTransitionSettings}
           />
 
-          <CodeEditorPanel
-            activeStepIndex={resolvedActiveStepIndex}
-            selectedStep={selectedStep}
-            selectedStepHoldMs={selectedStepHoldMs}
-            stepCount={steps.length}
-            onCodeKeyDown={handleCodeTabKey}
-            onUpdateCode={(value) => {
-              if (selectedStep) updateStep(selectedStep.id, value);
-            }}
-            onUpdateHoldDuration={(durationMs) => {
-              if (selectedStep) {
-                updateStepHoldDuration(selectedStep.id, durationMs);
-              }
-            }}
-          />
+          <section className="flex h-full min-w-0 flex-col overflow-y-auto">
+            {selectedStep &&
+              (() => {
+                const stepTransition = transitions[resolvedActiveStepIndex];
+                return (
+                  <>
+                    <CodeEditorPanel
+                      activeStepIndex={resolvedActiveStepIndex}
+                      selectedStep={selectedStep}
+                      selectedStepHoldMs={selectedStepHoldMs}
+                      stepCount={steps.length}
+                      transitionBelow={!!stepTransition}
+                      onCodeKeyDown={handleCodeTabKey}
+                      onUpdateCode={(value) => {
+                        updateStep(selectedStep.id, value);
+                      }}
+                      onUpdateHoldDuration={(durationMs) => {
+                        updateStepHoldDuration(selectedStep.id, durationMs);
+                      }}
+                    />
+                    {stepTransition && (
+                      <TransitionPanel
+                        transition={stepTransition}
+                        onUpdateTransitionSettings={updateTransitionSettings}
+                      />
+                    )}
+                  </>
+                );
+              })()}
+          </section>
 
-          <section className="flex min-w-0 flex-col gap-4">
+          <section className="flex h-full min-w-0 flex-col overflow-y-auto">
             <PreviewPanel
               canvasRef={canvasRef}
               progress={progress}
