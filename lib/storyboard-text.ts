@@ -1,4 +1,4 @@
-import type { TransitionConfig } from "./animator";
+import type { HighlightMode, TransitionConfig } from "./animator";
 
 export const STORYBOARD_BLOCK_MARKER = "<<<CODE_ANIMATION_BLOCK>>>";
 
@@ -140,10 +140,15 @@ export function parseStoryboardText(text: string): ParsedStoryboardText {
     }
 
     if (type === "transition") {
+      const highlight = headers.highlight?.trim().toLowerCase();
       pendingGap.transition = {
         durationMs: parseNumber(headers.durationMs),
         insertOnly: parseBoolean(headers.insertOnly),
         fuzzyDiff: parseBoolean(headers.fuzzyDiff),
+        highlight:
+          highlight === "none" || highlight === "line" || highlight === "inline"
+            ? (highlight as HighlightMode)
+            : undefined,
       };
       continue;
     }

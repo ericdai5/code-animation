@@ -37,7 +37,7 @@ import {
   type ResolvedTransition,
   type StepItem,
 } from "@/lib/storyboard-editor";
-import { type TransitionConfig } from "@/lib/animator";
+import { type HighlightMode, type TransitionConfig } from "@/lib/animator";
 
 interface StoryboardSidebarProps {
   activeStepId: string;
@@ -265,7 +265,7 @@ export function StoryboardSidebar({
                             />
                           </ToggleCard>
 
-                          <ToggleCard className="-mt-px rounded-b-[14px] rounded-t-none">
+                          <ToggleCard className="-mt-px rounded-none">
                             <FieldCopy>
                               <FieldHeading>
                                 <FieldTitle>Fuzzy diff</FieldTitle>
@@ -286,6 +286,40 @@ export function StoryboardSidebar({
                               }
                             />
                           </ToggleCard>
+
+                          <FieldCard className="-mt-px rounded-t-none rounded-b-[14px] p-3">
+                            <FieldRow>
+                              <FieldCopy>
+                                <FieldHeading>
+                                  <FieldTitle>Highlight</FieldTitle>
+                                  <InfoHint text="Control how changed lines are highlighted. Line highlights the full row, inline only colors the changed text." />
+                                </FieldHeading>
+                              </FieldCopy>
+                            </FieldRow>
+                            <div className="flex gap-1 rounded-full bg-[rgba(96,113,125,0.1)] p-0.5">
+                              {(["none", "line", "inline"] as HighlightMode[]).map(
+                                (mode) => (
+                                  <button
+                                    key={mode}
+                                    type="button"
+                                    className={cn(
+                                      "flex-1 rounded-full px-2.5 py-1 text-[0.78rem] font-semibold capitalize transition-colors duration-150",
+                                      transition.settings.highlight === mode
+                                        ? "bg-white text-teal-700 shadow-sm"
+                                        : "text-slate-500 hover:text-slate-700",
+                                    )}
+                                    onClick={() =>
+                                      onUpdateTransitionSettings(transition.id, {
+                                        highlight: mode,
+                                      })
+                                    }
+                                  >
+                                    {mode}
+                                  </button>
+                                ),
+                              )}
+                            </div>
+                          </FieldCard>
                         </div>
                       </div>
                     </div>

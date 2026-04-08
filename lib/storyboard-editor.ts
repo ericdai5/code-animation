@@ -9,6 +9,7 @@ export const DEFAULT_TRANSITION_SETTINGS: TransitionConfig = {
   durationMs: 1000,
   insertOnly: false,
   fuzzyDiff: false,
+  highlight: "line",
 };
 
 export const TRANSITION_MIN_MS = 200;
@@ -89,15 +90,22 @@ export function getDefaultStepHoldMs(index: number, stepCount: number) {
   return index === 0 || index === stepCount - 1 ? 0 : DEFAULT_STEP_HOLD_MS;
 }
 
+const VALID_HIGHLIGHT_MODES = new Set(["none", "line", "inline"]);
+
 export function normalizeTransitionConfig(
   config?: Partial<TransitionConfig>,
 ): TransitionConfig {
+  const highlight = config?.highlight;
   return {
     durationMs: clampDuration(
       config?.durationMs ?? DEFAULT_TRANSITION_SETTINGS.durationMs,
     ),
     insertOnly: config?.insertOnly ?? DEFAULT_TRANSITION_SETTINGS.insertOnly,
     fuzzyDiff: config?.fuzzyDiff ?? DEFAULT_TRANSITION_SETTINGS.fuzzyDiff,
+    highlight:
+      highlight && VALID_HIGHLIGHT_MODES.has(highlight)
+        ? highlight
+        : DEFAULT_TRANSITION_SETTINGS.highlight,
   };
 }
 

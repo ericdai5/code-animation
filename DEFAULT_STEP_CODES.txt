@@ -96,3 +96,23 @@ const kineticConfig: Config = {
     v: { name: "Velocity" },
   },
 }
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1200
+insertOnly: true
+fuzzyDiff: false
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: { default: 1, name: "Mass" },
+    v: { default: 2, name: "Velocity" },
+  },
+}
