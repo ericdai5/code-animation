@@ -11,6 +11,7 @@ durationMs: 1200
 insertOnly: true
 fuzzyDiff: true
 highlight: none
+nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
@@ -28,6 +29,7 @@ durationMs: 1200
 insertOnly: true
 fuzzyDiff: true
 highlight: none
+nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
@@ -48,6 +50,7 @@ durationMs: 1200
 insertOnly: true
 fuzzyDiff: true
 highlight: none
+nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
@@ -67,6 +70,7 @@ durationMs: 1200
 insertOnly: true
 fuzzyDiff: true
 highlight: none
+nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
@@ -87,6 +91,7 @@ durationMs: 1200
 insertOnly: true
 fuzzyDiff: true
 highlight: none
+nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
@@ -108,6 +113,7 @@ durationMs: 1200
 insertOnly: true
 fuzzyDiff: false
 highlight: none
+nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step

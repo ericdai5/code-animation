@@ -147,6 +147,26 @@ export function TransitionPanel({
                 />
               </ToggleCard>
 
+              <ToggleCard className="-mt-px rounded-none">
+                <FieldCopy>
+                  <FieldHeading>
+                    <FieldTitle>Next step persistence</FieldTitle>
+                    <InfoHint text="Keep inserted and changed code color-coded after this transition finishes, until the following transition begins." />
+                  </FieldHeading>
+                </FieldCopy>
+                <ToggleTrack checked={transition.settings.nextStepPersistence} />
+                <input
+                  className="sr-only"
+                  type="checkbox"
+                  checked={transition.settings.nextStepPersistence}
+                  onChange={(event) =>
+                    onUpdateTransitionSettings(transition.id, {
+                      nextStepPersistence: event.target.checked,
+                    })
+                  }
+                />
+              </ToggleCard>
+
               <FieldCard className="-mt-px rounded-t-none rounded-b-[14px] p-3">
                 <FieldRow>
                   <FieldCopy>

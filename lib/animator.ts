@@ -34,6 +34,7 @@ export interface TransitionConfig {
   insertOnly: boolean;
   fuzzyDiff: boolean;
   highlight: HighlightMode;
+  nextStepPersistence: boolean;
 }
 
 interface FixedViewport {
@@ -468,6 +469,38 @@ export class CanvasAnimator {
     };
   }
 
+  private buildSettledLineStates(
+    before: string,
+    after: string,
+    config: TransitionConfig
+  ): LineState[] {
+    const ops = buildAnimationOps(before, after, config.fuzzyDiff);
+    const lineStates: LineState[] = [];
+
+    for (const op of ops) {
+      if (op.t === "d") continue;
+
+      if (op.t === "r") {
+        lineStates.push({
+          text: op.v,
+          type: "r",
+          progress: 1,
+          segments: op.segments,
+          metrics: this.getReplaceLineMetrics(op.segments),
+        });
+        continue;
+      }
+
+      lineStates.push({
+        text: op.v,
+        type: op.t,
+        progress: 1,
+      });
+    }
+
+    return lineStates;
+  }
+
   private sizeCanvas(h: number) {
     const w = this.fixedViewport?.width ?? this.canvas.parentElement!.clientWidth;
     const height = this.fixedViewport?.height ?? h;
@@ -639,6 +672,26 @@ export class CanvasAnimator {
     this.notifyDraw();
   }
 
+  private drawSettledTransitionState(
+    before: string,
+    after: string,
+    config: TransitionConfig
+  ) {
+    if (!config.nextStepPersistence) {
+      this.drawStaticText(after);
+      return;
+    }
+
+    const lineStates = this.buildSettledLineStates(before, after, config);
+
+    if (lineStates.length === 0) {
+      this.drawStaticText(after);
+      return;
+    }
+
+    this.drawLines(lineStates, false, config.highlight);
+  }
+
   drawStaticText(text: string) {
     const lines = text.split("\n");
     const lineHeight = this.getCodeLineHeight();
@@ -663,7 +716,7 @@ export class CanvasAnimator {
     this.ctx.fillStyle = withAlpha(this.colors.text, 0.35);
     this.ctx.globalAlpha = 0.5;
     this.ctx.fillText(
-      "Press Animate All to see the transitions...",
+      "Press Animate to preview the selected range...",
       PAD_X,
       this.getCodeTextY(PAD_Y)
     );
@@ -682,12 +735,28 @@ export class CanvasAnimator {
   holdFrame(
     text: string,
     durationMs: number,
-    progressCb: (p: number) => void
+    progressCb: (p: number) => void,
+    options?: {
+      persistedTransition?: {
+        before: string;
+        after: string;
+        config: TransitionConfig;
+      };
+    }
   ): Promise<void> {
     return new Promise((resolve) => {
       const totalDuration = Math.max(0, durationMs);
+      const persistedTransition = options?.persistedTransition;
 
-      this.drawStaticText(text);
+      if (persistedTransition) {
+        this.drawSettledTransitionState(
+          persistedTransition.before,
+          persistedTransition.after,
+          persistedTransition.config
+        );
+      } else {
+        this.drawStaticText(text);
+      }
 
       if (totalDuration === 0) {
         this.rafId = null;
@@ -785,7 +854,7 @@ export class CanvasAnimator {
         if (progress < 1) {
           this.rafId = requestAnimationFrame(tick);
         } else {
-          this.drawStaticText(after);
+          this.drawSettledTransitionState(before, after, config);
           this.rafId = null;
           progressCb(1);
           resolve();

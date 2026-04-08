@@ -10,6 +10,7 @@ export const DEFAULT_TRANSITION_SETTINGS: TransitionConfig = {
   insertOnly: false,
   fuzzyDiff: false,
   highlight: "line",
+  nextStepPersistence: true,
 };
 
 export const TRANSITION_MIN_MS = 200;
@@ -62,6 +63,26 @@ export interface ResolvedTransition {
   fromStepHoldMs: number;
 }
 
+export interface AnimationRangeSelection {
+  startStepId: string;
+  endStepId: string;
+}
+
+export interface ResolvedAnimationRange extends AnimationRangeSelection {
+  startIndex: number;
+  endIndex: number;
+}
+
+export interface PlaybackSequence {
+  range: ResolvedAnimationRange;
+  steps: StepItem[];
+  transitions: ResolvedTransition[];
+  startStep: StepItem;
+  endStep: StepItem;
+  finalStepHoldMs: number;
+  totalDurationMs: number;
+}
+
 interface InitialStoryboardState {
   steps: StepItem[];
   transitionSettings: Record<string, TransitionConfig>;
@@ -102,6 +123,9 @@ export function normalizeTransitionConfig(
     ),
     insertOnly: config?.insertOnly ?? DEFAULT_TRANSITION_SETTINGS.insertOnly,
     fuzzyDiff: config?.fuzzyDiff ?? DEFAULT_TRANSITION_SETTINGS.fuzzyDiff,
+    nextStepPersistence:
+      config?.nextStepPersistence ??
+      DEFAULT_TRANSITION_SETTINGS.nextStepPersistence,
     highlight:
       highlight && VALID_HIGHLIGHT_MODES.has(highlight)
         ? highlight
@@ -117,6 +141,47 @@ export function getResolvedStepHoldMs(
   return clampStepHoldDuration(
     step.holdDurationMs ?? getDefaultStepHoldMs(index, stepCount),
   );
+}
+
+export function buildFullAnimationRange(steps: StepItem[]): AnimationRangeSelection {
+  const firstStep = steps[0];
+  const lastStep = steps[steps.length - 1] ?? firstStep;
+
+  return {
+    startStepId: firstStep?.id ?? "",
+    endStepId: lastStep?.id ?? firstStep?.id ?? "",
+  };
+}
+
+export function resolveAnimationRange(
+  range: AnimationRangeSelection | null | undefined,
+  steps: StepItem[],
+): ResolvedAnimationRange | null {
+  if (!steps.length) return null;
+
+  const rawStartIndex = steps.findIndex(
+    (step) => step.id === range?.startStepId,
+  );
+  const rawEndIndex = steps.findIndex((step) => step.id === range?.endStepId);
+  const startIndex = rawStartIndex >= 0 ? rawStartIndex : 0;
+  const endIndex = rawEndIndex >= 0 ? rawEndIndex : steps.length - 1;
+  let orderedStartIndex = Math.min(startIndex, endIndex);
+  let orderedEndIndex = Math.max(startIndex, endIndex);
+
+  if (orderedStartIndex === orderedEndIndex && steps.length > 1) {
+    if (orderedEndIndex === steps.length - 1) {
+      orderedStartIndex = Math.max(0, orderedEndIndex - 1);
+    } else {
+      orderedEndIndex = Math.min(steps.length - 1, orderedStartIndex + 1);
+    }
+  }
+
+  return {
+    startStepId: steps[orderedStartIndex].id,
+    endStepId: steps[orderedEndIndex].id,
+    startIndex: orderedStartIndex,
+    endIndex: orderedEndIndex,
+  };
 }
 
 function buildStepItems(parsedSteps: ParsedStoryboardText["steps"]) {
@@ -240,4 +305,47 @@ export function buildResolvedTransitions(
   }
 
   return transitions;
+}
+
+export function buildPlaybackSequence(
+  steps: StepItem[],
+  transitionSettings: Record<string, TransitionConfig>,
+  range: AnimationRangeSelection | null | undefined,
+): PlaybackSequence | null {
+  const resolvedRange = resolveAnimationRange(range, steps);
+  if (!resolvedRange) return null;
+
+  const transitions = buildResolvedTransitions(steps, transitionSettings).slice(
+    resolvedRange.startIndex,
+    resolvedRange.endIndex,
+  );
+  const selectedSteps = steps.slice(
+    resolvedRange.startIndex,
+    resolvedRange.endIndex + 1,
+  );
+  const startStep = steps[resolvedRange.startIndex];
+  const endStep = steps[resolvedRange.endIndex];
+  const finalStepHoldMs = getResolvedStepHoldMs(
+    endStep,
+    resolvedRange.endIndex,
+    steps.length,
+  );
+  const totalDurationMs =
+    transitions.reduce(
+      (sum, item) =>
+        sum +
+        item.fromStepHoldMs +
+        Math.max(TRANSITION_MIN_MS, item.settings.durationMs),
+      0,
+    ) + finalStepHoldMs;
+
+  return {
+    range: resolvedRange,
+    steps: selectedSteps,
+    transitions,
+    startStep,
+    endStep,
+    finalStepHoldMs,
+    totalDurationMs,
+  };
 }

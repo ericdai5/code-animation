@@ -17,6 +17,7 @@ type: transition
 durationMs: 900
 insertOnly: false
 fuzzyDiff: false
+nextStepPersistence: true
 
 ${STORYBOARD_BLOCK_MARKER}
 type: step
@@ -36,6 +37,7 @@ type: transition
 durationMs: 1200
 insertOnly: true
 fuzzyDiff: true
+nextStepPersistence: true
 
 ${STORYBOARD_BLOCK_MARKER}
 type: step
@@ -145,6 +147,7 @@ export function parseStoryboardText(text: string): ParsedStoryboardText {
         durationMs: parseNumber(headers.durationMs),
         insertOnly: parseBoolean(headers.insertOnly),
         fuzzyDiff: parseBoolean(headers.fuzzyDiff),
+        nextStepPersistence: parseBoolean(headers.nextStepPersistence),
         highlight:
           highlight === "none" || highlight === "line" || highlight === "inline"
             ? (highlight as HighlightMode)

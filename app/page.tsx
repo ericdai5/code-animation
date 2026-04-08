@@ -26,6 +26,8 @@ import {
 } from "@/lib/animator";
 import {
   buildInitialStoryboardState,
+  buildFullAnimationRange,
+  buildPlaybackSequence,
   buildResolvedTransitions,
   clampStepHoldDuration,
   createHiddenExportCanvas,
@@ -39,10 +41,12 @@ import {
   getTransitionKey,
   INITIAL_STEPS,
   INITIAL_STORYBOARD,
+  resolveAnimationRange,
   normalizeTransitionConfig,
   sleep,
-  TRANSITION_MIN_MS,
+  type AnimationRangeSelection,
   type ExportPresetId,
+  type PlaybackSequence,
   type StepItem,
 } from "@/lib/storyboard-editor";
 import { parseStoryboardText } from "@/lib/storyboard-text";
@@ -54,6 +58,9 @@ export default function Home() {
   const [steps, setSteps] = useState<StepItem[]>(INITIAL_STORYBOARD.steps);
   const [activeStepId, setActiveStepId] = useState(INITIAL_STEPS[0]?.id ?? "");
   const [draggingStepId, setDraggingStepId] = useState<string | null>(null);
+  const [animationRange, setAnimationRange] = useState<AnimationRangeSelection>(
+    buildFullAnimationRange(INITIAL_STORYBOARD.steps),
+  );
 
   const [activeTransitionId, setActiveTransitionId] = useState<string | null>(
     null,
@@ -83,10 +90,12 @@ export default function Home() {
   const animatorRef = useRef<CanvasAnimator | null>(null);
   const stepsRef = useRef(steps);
   const transitionSettingsRef = useRef(transitionSettings);
+  const animationRangeRef = useRef(animationRange);
   const nextStepIdRef = useRef(INITIAL_STEPS.length + 1);
 
   stepsRef.current = steps;
   transitionSettingsRef.current = transitionSettings;
+  animationRangeRef.current = animationRange;
 
   const activeStepIndex = steps.findIndex((step) => step.id === activeStepId);
   const selectedStep = activeStepIndex >= 0 ? steps[activeStepIndex] : undefined;
@@ -95,15 +104,46 @@ export default function Home() {
     ? steps.findIndex((step) => step.id === selectedStep.id)
     : -1;
   const transitions = buildResolvedTransitions(steps, transitionSettings);
+  const playbackSequence = buildPlaybackSequence(
+    steps,
+    transitionSettings,
+    animationRange,
+  );
   const selectedStepHoldMs = selectedStep
     ? getResolvedStepHoldMs(selectedStep, resolvedActiveStepIndex, steps.length)
     : 0;
+  const resolvedAnimationRange = playbackSequence?.range ?? null;
+  const animateLabel =
+    playbackSequence &&
+    playbackSequence.range.startIndex === 0 &&
+    playbackSequence.range.endIndex === steps.length - 1
+      ? "Animate All"
+      : "Animate Range";
 
   useEffect(() => {
     if (activeStepId && !steps.some((step) => step.id === activeStepId) && steps[0]) {
       setActiveStepId(steps[0].id);
     }
   }, [activeStepId, steps]);
+
+  useEffect(() => {
+    setAnimationRange((currentRange) => {
+      const nextRange = resolveAnimationRange(currentRange, steps);
+      if (!nextRange) return buildFullAnimationRange(steps);
+
+      if (
+        nextRange.startStepId === currentRange.startStepId &&
+        nextRange.endStepId === currentRange.endStepId
+      ) {
+        return currentRange;
+      }
+
+      return {
+        startStepId: nextRange.startStepId,
+        endStepId: nextRange.endStepId,
+      };
+    });
+  }, [steps]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -127,6 +167,7 @@ export default function Home() {
         setTransitionSettings(nextStoryboard.transitionSettings);
         setActiveTransitionId(null);
         setActiveStepId(nextStoryboard.steps[0]?.id ?? "");
+        setAnimationRange(buildFullAnimationRange(nextStoryboard.steps));
         nextStepIdRef.current = nextStoryboard.steps.length + 1;
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -236,34 +277,62 @@ export default function Home() {
   const playTransitionSequence = useCallback(
     async (
       animator: CanvasAnimator,
-      items: ReturnType<typeof buildResolvedTransitions>,
+      sequence: PlaybackSequence,
       options?: {
         onProgress?: (value: number) => void;
         onStepLabel?: (value: string) => void;
       },
     ) => {
       animator.running = true;
-      const finalStep = items[items.length - 1]?.toStep;
-      const finalStepHoldMs = finalStep
-        ? getResolvedStepHoldMs(finalStep, items.length, items.length + 1)
-        : 0;
-      const totalDurationMs =
-        items.reduce(
-          (sum, item) =>
-            sum +
-            item.fromStepHoldMs +
-            Math.max(TRANSITION_MIN_MS, item.settings.durationMs),
-          0,
-        ) + finalStepHoldMs;
+      const items = sequence.transitions;
+      const totalDurationMs = sequence.totalDurationMs;
       let elapsedMs = 0;
+      const getPersistedTransition = (transition?: PlaybackSequence["transitions"][number]) =>
+        transition?.settings.nextStepPersistence
+          ? {
+              before: transition.fromStep.code,
+              after: transition.toStep.code,
+              config: transition.settings,
+            }
+          : undefined;
+
+      if (items.length === 0) {
+        const stepNumber = sequence.range.startIndex + 1;
+        options?.onStepLabel?.(
+          sequence.finalStepHoldMs > 0
+            ? `Hold on Step ${stepNumber}`
+            : `Step ${stepNumber}`,
+        );
+
+        if (sequence.finalStepHoldMs > 0) {
+          await animator.holdFrame(
+            sequence.startStep.code,
+            sequence.finalStepHoldMs,
+            (value) =>
+              options?.onProgress?.(
+                totalDurationMs <= 0
+                  ? 1
+                  : (elapsedMs + value * sequence.finalStepHoldMs) /
+                      totalDurationMs,
+              ),
+          );
+        } else {
+          animator.drawStaticText(sequence.startStep.code);
+          options?.onProgress?.(1);
+        }
+
+        return animator.running;
+      }
 
       for (let index = 0; index < items.length; index++) {
         if (!animator.running) break;
 
         const item = items[index];
+        const previousTransition = index > 0 ? items[index - 1] : undefined;
+        const fromStepNumber = sequence.range.startIndex + index + 1;
 
         if (item.fromStepHoldMs > 0) {
-          options?.onStepLabel?.(`Hold on Step ${index + 1}`);
+          options?.onStepLabel?.(`Hold on Step ${fromStepNumber}`);
 
           await animator.holdFrame(
             item.fromStep.code,
@@ -274,6 +343,9 @@ export default function Home() {
                   ? 1
                   : (elapsedMs + value * item.fromStepHoldMs) / totalDurationMs,
               ),
+            {
+              persistedTransition: getPersistedTransition(previousTransition),
+            },
           );
 
           elapsedMs += item.fromStepHoldMs;
@@ -281,7 +353,9 @@ export default function Home() {
 
         if (!animator.running) break;
 
-        options?.onStepLabel?.(`Step ${index + 1} to ${index + 2}`);
+        options?.onStepLabel?.(
+          `Step ${fromStepNumber} to ${fromStepNumber + 1}`,
+        );
 
         await animator.animateTransition(
           item.fromStep.code,
@@ -298,21 +372,26 @@ export default function Home() {
         elapsedMs += item.settings.durationMs;
       }
 
-      if (animator.running && finalStep && finalStepHoldMs > 0) {
-        options?.onStepLabel?.(`Hold on Step ${items.length + 1}`);
+      if (animator.running && sequence.finalStepHoldMs > 0) {
+        const lastTransition = items[items.length - 1];
+        options?.onStepLabel?.(`Hold on Step ${sequence.range.endIndex + 1}`);
 
         await animator.holdFrame(
-          finalStep.code,
-          finalStepHoldMs,
+          sequence.endStep.code,
+          sequence.finalStepHoldMs,
           (value) =>
             options?.onProgress?.(
               totalDurationMs <= 0
                 ? 1
-                : (elapsedMs + value * finalStepHoldMs) / totalDurationMs,
+                : (elapsedMs + value * sequence.finalStepHoldMs) /
+                    totalDurationMs,
             ),
+          {
+            persistedTransition: getPersistedTransition(lastTransition),
+          },
         );
 
-        elapsedMs += finalStepHoldMs;
+        elapsedMs += sequence.finalStepHoldMs;
       }
 
       return animator.running;
@@ -321,14 +400,14 @@ export default function Home() {
   );
 
   const playTransitions = useCallback(
-    async (items: ReturnType<typeof buildResolvedTransitions>) => {
+    async (sequence: PlaybackSequence) => {
       const animator = animatorRef.current;
       if (!animator) return false;
 
       setRunning(true);
       setProgress(0);
 
-      return playTransitionSequence(animator, items, {
+      return playTransitionSequence(animator, sequence, {
         onProgress: setProgress,
         onStepLabel: setStepLabel,
       });
@@ -345,14 +424,15 @@ export default function Home() {
       return;
     }
 
-    const currentTransitions = buildResolvedTransitions(
+    const currentSequence = buildPlaybackSequence(
       stepsRef.current,
       transitionSettingsRef.current,
+      animationRangeRef.current,
     );
 
-    if (currentTransitions.length === 0) return;
+    if (!currentSequence) return;
 
-    const completed = await playTransitions(currentTransitions);
+    const completed = await playTransitions(currentSequence);
     if (completed) {
       setProgress(1);
       halt();
@@ -377,12 +457,13 @@ export default function Home() {
     const canvas = canvasRef.current;
     if (!animator || !canvas) return;
 
-    const currentTransitions = buildResolvedTransitions(
+    const currentSequence = buildPlaybackSequence(
       stepsRef.current,
       transitionSettingsRef.current,
+      animationRangeRef.current,
     );
 
-    if (currentTransitions.length === 0) return;
+    if (!currentSequence) return;
     if (animator.running) halt();
 
     setExporting(true);
@@ -403,8 +484,8 @@ export default function Home() {
         preset.targetWidth,
       );
       const logicalHeight = Math.max(
-        measureStaticTextHeight(currentTransitions[0].fromStep.code, typography),
-        ...currentTransitions.flatMap((item) => [
+        measureStaticTextHeight(currentSequence.startStep.code, typography),
+        ...currentSequence.transitions.flatMap((item) => [
           measureStaticTextHeight(item.toStep.code, typography),
           measureTransitionMaxHeight(
             item.fromStep.code,
@@ -444,7 +525,7 @@ export default function Home() {
         stream = exportCanvas.captureStream();
       }
 
-      exportAnimator.drawStaticText(currentTransitions[0].fromStep.code);
+      exportAnimator.drawStaticText(currentSequence.startStep.code);
       const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
         ? "video/webm;codecs=vp9"
         : "video/webm";
@@ -469,7 +550,7 @@ export default function Home() {
 
       const completed = await playTransitionSequence(
         exportAnimator,
-        currentTransitions,
+        currentSequence,
         {
           onProgress: setProgress,
           onStepLabel: setStepLabel,
@@ -656,7 +737,9 @@ export default function Home() {
           <StoryboardSidebar
             activeStepId={resolvedActiveStepId}
             activeTransitionId={activeTransitionId}
+            animationRange={resolvedAnimationRange}
             draggingStepId={draggingStepId}
+            selectedDurationMs={playbackSequence?.totalDurationMs ?? 0}
             steps={steps}
             transitions={transitions}
             onAddStep={addStep}
@@ -665,6 +748,7 @@ export default function Home() {
             onDragStart={handleDragStart}
             onDrop={handleDrop}
             onDropOnTrash={handleDropOnTrash}
+            onUpdateAnimationRange={(nextRange) => setAnimationRange(nextRange)}
             onTrashDragOver={handleTrashDragOver}
             onSelectStep={toggleStep}
             onSelectTransition={selectTransition}
@@ -712,6 +796,7 @@ export default function Home() {
               }
             >
               <PreviewPanel
+                animateLabel={animateLabel}
                 canvasRef={canvasRef}
                 exportPresetId={exportPresetId}
                 exporting={exporting}

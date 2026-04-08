@@ -29,6 +29,7 @@ const toolbarBtnBase =
 const toolbarBtnInlineSvg = "[&_svg]:block [&_svg]:h-[13px] [&_svg]:w-[13px] [&_svg]:shrink-0";
 
 interface PreviewPanelProps {
+  animateLabel: string;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   exportPresetId: ExportPresetId;
   exporting: boolean;
@@ -43,6 +44,7 @@ interface PreviewPanelProps {
 }
 
 export function PreviewPanel({
+  animateLabel,
   canvasRef,
   exportPresetId,
   exporting,
@@ -194,7 +196,7 @@ export function PreviewPanel({
               onClick={onAnimateAll}
             >
               {running ? <PauseIcon /> : <PlayIcon />}
-              {running ? "Pause" : "Animate All"}
+              {running ? "Pause" : animateLabel}
             </ActionButton>
             <ActionButton
               type="button"
