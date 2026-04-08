@@ -16,7 +16,7 @@ export interface ColorConfig {
 export type HighlightMode = "none" | "line" | "inline";
 export const CODE_FONT_WEIGHT_OPTIONS = [400, 500, 700] as const;
 export type CodeFontWeight = (typeof CODE_FONT_WEIGHT_OPTIONS)[number];
-export const CODE_LINE_SPACING_MIN = 1.4;
+export const CODE_LINE_SPACING_MIN = 1;
 export const CODE_LINE_SPACING_MAX = 2.4;
 export const CODE_LINE_SPACING_STEP = 0.05;
 export const CODE_LETTER_SPACING_MIN = -0.5;
@@ -64,8 +64,8 @@ const DEFAULT_COLORS: ColorConfig = {
 
 export const DEFAULT_TYPOGRAPHY: TypographyConfig = {
   codeFontWeight: 500,
-  codeLineSpacing: 1.8,
-  codeLetterSpacing: 0,
+  codeLineSpacing: 1.4,
+  codeLetterSpacing: -0.3,
 };
 
 export function normalizeTypographyConfig(
