@@ -35,7 +35,6 @@ import {
   DEFAULT_TRANSITION_SETTINGS,
   EXPORT_TAIL_MS,
   EXPORT_WARMUP_MS,
-  getCanvasLogicalWidth,
   getExportPreset,
   getResolvedStepHoldMs,
   getTransitionKey,
@@ -486,10 +485,6 @@ export default function Home() {
       try {
         await document.fonts.ready;
 
-        const logicalWidth = getCanvasLogicalWidth(
-          canvas,
-          preset.targetWidth,
-        );
         const logicalHeight = Math.max(
           measureStaticTextHeight(currentSequence.startStep.code, typography),
           ...currentSequence.transitions.flatMap((item) => [
@@ -502,6 +497,21 @@ export default function Home() {
             ),
           ]),
         );
+
+        // Measure content width using a temporary canvas+animator
+        const allCodes = [
+          currentSequence.startStep.code,
+          ...currentSequence.transitions.map((t) => t.toStep.code),
+        ];
+        const measureCanvas = document.createElement("canvas");
+        const measureAnimator = new CanvasAnimator(measureCanvas);
+        measureAnimator.typography = typography;
+        const contentWidth = measureAnimator.measureMaxContentWidth(allCodes);
+        const logicalWidth = Math.min(
+          Math.max(contentWidth, 240),
+          preset.targetWidth,
+        );
+
         const { canvas: exportCanvas, cleanup } =
           createHiddenExportCanvas(logicalWidth);
         cleanupExportCanvas = cleanup;

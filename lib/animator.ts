@@ -425,6 +425,17 @@ export class CanvasAnimator {
     });
   }
 
+  measureMaxContentWidth(codes: string[]): number {
+    let maxWidth = 0;
+    for (const code of codes) {
+      for (const line of code.split("\n")) {
+        const w = this.measureInlineWidth(line);
+        if (w > maxWidth) maxWidth = w;
+      }
+    }
+    return PAD_X * 2 + maxWidth;
+  }
+
   private measureInlineWidth(text: string) {
     if (!text) return 0;
 
