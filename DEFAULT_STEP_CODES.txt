@@ -1,13 +1,13 @@
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
-durationMs: 700
+durationMs: 1000
 
 const kineticConfig: Config = {
 }
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: transition
-durationMs: 1200
+durationMs: 1500
 insertOnly: true
 fuzzyDiff: true
 highlight: none
@@ -15,7 +15,7 @@ nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
-durationMs: 700
+durationMs: 1000
 
 const kineticConfig: Config = {
   formulas: [
@@ -25,7 +25,7 @@ const kineticConfig: Config = {
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: transition
-durationMs: 1200
+durationMs: 1500
 insertOnly: true
 fuzzyDiff: true
 highlight: none
@@ -33,7 +33,7 @@ nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
-durationMs: 900
+durationMs: 1000
 
 const kineticConfig: Config = {
   formulas: [
@@ -46,7 +46,7 @@ const kineticConfig: Config = {
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: transition
-durationMs: 1200
+durationMs: 1500
 insertOnly: true
 fuzzyDiff: true
 highlight: none
@@ -54,6 +54,7 @@ nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
+durationMs: 1000
 
 const kineticConfig: Config = {
   formulas: [
@@ -66,7 +67,7 @@ const kineticConfig: Config = {
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: transition
-durationMs: 1200
+durationMs: 1500
 insertOnly: true
 fuzzyDiff: true
 highlight: none
@@ -74,6 +75,7 @@ nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
+durationMs: 1000
 
 const kineticConfig: Config = {
   formulas: [
@@ -87,7 +89,7 @@ const kineticConfig: Config = {
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: transition
-durationMs: 1200
+durationMs: 1500
 insertOnly: true
 fuzzyDiff: true
 highlight: none
@@ -95,6 +97,7 @@ nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
+durationMs: 1000
 
 const kineticConfig: Config = {
   formulas: [
@@ -109,7 +112,7 @@ const kineticConfig: Config = {
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: transition
-durationMs: 1200
+durationMs: 1500
 insertOnly: true
 fuzzyDiff: false
 highlight: none
@@ -117,6 +120,7 @@ nextStepPersistence: true
 
 <<<CODE_ANIMATION_BLOCK>>>
 type: step
+durationMs: 1000
 
 const kineticConfig: Config = {
   formulas: [
@@ -128,3 +132,405 @@ const kineticConfig: Config = {
     v: { default: 2, name: "Velocity" },
   },
 }
+
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: { default: 1, name: "Mass" },
+    v: { default: 2, name: "Velocity" },
+  },
+  semantics: function ({ vars }) {
+    vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  },
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: {
+      default: 1, 
+      name: "Mass",
+    },
+    v: { 
+      default: 2, 
+      name: "Velocity",
+    },
+  },
+  semantics: function ({ vars }) {
+    vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  },
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: {
+      default: 1, 
+      name: "Mass",
+      range: [0, 10],  
+      input: "inline",
+      latexDisplay: "value",
+      labelDisplay: "name",
+    },
+    v: { 
+      default: 2, 
+      name: "Velocity" 
+    },
+  },
+  semantics: function ({ vars }) {
+    vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  },
+}
+
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const kineticConfig: Config = {
+  formulas: [
+    id: "kinetic-energy", latex: "K = \\frac{1}{2}mv^2",
+  ],
+  variables: {
+    K: { name: "Kinetic Energy" },
+    m: {
+      default: 1, 
+      name: "Mass",
+      range: [0, 10],
+      input: "inline",
+      latexDisplay: "value",
+      labelDisplay: "name",
+    },
+    v: {
+      default: 2,
+      name: "Velocity",
+      range: [0, 10],
+      input: "drag",
+    },
+  },
+  semantics: function ({ vars }) {
+    vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  },
+}
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+semantics: function ({ vars, sample }) {
+  vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+},
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+semantics: function ({ vars, sample }) {
+  vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  sample("energy", { x: vars.v, y: vars.K });
+},
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+semantics: function ({ vars, sample }) {
+  vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  sample("energy", { x: vars.v, y: vars.K });
+},
+graph2d: [{
+  id: "energyGraph",
+  xAxisVar: "v",
+  yAxisVar: "K",
+}],
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+semantics: function ({ vars, sample }) {
+  vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  sample("energy", { x: vars.v, y: vars.K });
+},
+graph2d: [{
+  id: "energyGraph",
+  xAxisVar: "v",
+  yAxisVar: "K",
+  lines: [{
+    sampleId: "energy", parameter: "v",
+  }],
+  points: [{
+    sampleId: "energy",
+  }],
+}],
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+semantics: function ({ vars, sample }) {
+  vars.K = 0.5 * vars.m * Math.pow(vars.v, 2);
+  sample("energy", { x: vars.v, y: vars.K });
+},
+graph2d: [{
+  id: "energyGraph",
+  xAxisVar: "v",
+  yAxisVar: "K",
+  lines: [{
+    sampleId: "energy", parameter: "v",
+    interaction: ["vertical-drag", "m"],
+  }],
+  points: [{
+    sampleId: "energy",
+    interaction: ["horizontal-drag", "v"],
+  }],
+}],
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const config = {
+  formulas: [
+    {
+      id: "average",
+      latex: "\\mu = \\frac{1}{n} \\sum_{i=1}^{n} X_i"
+    },
+  ],
+  variables: {
+    "\\mu": { name: "Mean" },
+    n: { name: "Count" },
+    X_i: { name: "Value at index i", precision: 0 },
+    X: { default: [10, 20, 30], name: "Value set" },
+  },
+};
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const config = {
+  formulas: [
+    {
+      id: "average",
+      latex: "\\mu = \\frac{1}{n} \\sum_{i=1}^{n} X_i"
+    },
+  ],
+  variables: {
+    "\\mu": { name: "Mean" },
+    n: { name: "Count" },
+    X_i: { name: "Value at index i", precision: 0 },
+    X: { default: [10, 20, 30], name: "Value set" },
+  },
+  semantics: function({ vars, step }) {
+    vars.n = vars.X.length;
+    var sum = 0;
+    vars["\\mu"] = 0;
+    for (var i = 0; i < vars.n; i++) {
+      vars.X_i = vars.X[i];
+      sum = sum + vars.X_i;
+      vars["\\mu"] = sum / (i + 1);
+    }
+    vars["\\mu"] = Math.round(vars["\\mu"] * 100) / 100;
+  },
+};
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const config = {
+  formulas: [
+    {
+      id: "average",
+      latex: "\\mu = \\frac{1}{n} \\sum_{i=1}^{n} X_i"
+    },
+  ],
+  variables: {
+    "\\mu": { name: "Mean" },
+    n: { name: "Count" },
+    X_i: { name: "Value at index i", precision: 0 },
+    X: { default: [10, 20, 30], name: "Value set" },
+  },
+  stepping: true,
+  semantics: function({ vars, step }) {
+    vars.n = vars.X.length;
+    var sum = 0;
+    vars["\\mu"] = 0;
+    for (var i = 0; i < vars.n; i++) {
+      vars.X_i = vars.X[i];
+      sum = sum + vars.X_i;
+      vars["\\mu"] = sum / (i + 1);
+      step({
+        description: "Running average at index " + i + " is " + vars["\\mu"],
+      });
+    }
+    vars["\\mu"] = Math.round(vars["\\mu"] * 100) / 100;
+  },
+};
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: transition
+durationMs: 1500
+insertOnly: true
+fuzzyDiff: true
+highlight: none
+nextStepPersistence: true
+
+<<<CODE_ANIMATION_BLOCK>>>
+type: step
+durationMs: 1000
+
+const config = {
+  formulas: [
+    {
+      id: "average",
+      latex: "\\mu = \\frac{1}{n} \\sum_{i=1}^{n} X_i"
+    },
+  ],
+  variables: {
+    "\\mu": { name: "Mean" },
+    n: { name: "Count" },
+    X_i: { name: "Value at index i", precision: 0 },
+    X: { default: [10, 20, 30], name: "Value set" },
+  },
+  stepping: true,
+  semantics: function({ vars, step }) {
+    vars.n = vars.X.length;
+    var sum = 0;
+    vars["\\mu"] = 0;
+    for (var i = 0; i < vars.n; i++) {
+      vars.X_i = vars.X[i];
+      sum = sum + vars.X_i;
+      vars["\\mu"] = sum / (i + 1);
+      step({
+        description: "Running average at index " + i + " is " + vars["\\mu"],
+        labels: {
+          "\\sum_{i=1}^{n} X_i": "sum is now " + sum,
+          "n": "n is now " + (i + 1),
+          "X_i": vars.X_i,
+          "X": vars.X,
+        }
+      });
+    }
+    vars["\\mu"] = Math.round(vars["\\mu"] * 100) / 100;
+  },
+};
