@@ -332,8 +332,8 @@ export function StoryboardSidebar({
                   tabIndex={0}
                   aria-pressed={isActive}
                 >
-                  <span className="flex items-center gap-1.5 text-[0.92rem] font-semibold">
-                    <SquareCode size={15} /> Code
+                  <span className="flex items-center gap-1.5 text-[0.8rem] font-semibold">
+                    <SquareCode size={13} /> Code
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2.5 py-1 font-mono text-[0.72rem] font-bold uppercase tracking-[0.08em] text-teal-700">
                     <Clock size={11} /> {formatDuration(stepHoldMs)}
@@ -360,8 +360,8 @@ export function StoryboardSidebar({
                       }
                     }}
                   >
-                    <span className="flex items-center gap-1.5 text-[0.92rem] font-semibold text-slate-900">
-                      <Zap size={15} aria-hidden />
+                    <span className="flex items-center gap-1.5 text-[0.8rem] font-semibold text-slate-900">
+                      <Zap size={13} aria-hidden />
                       Transition
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-100/90 px-2.5 py-1 font-mono text-[0.72rem] font-bold uppercase tracking-[0.08em] text-teal-700">
